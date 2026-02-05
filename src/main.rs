@@ -281,36 +281,104 @@ async fn main() {
             draw_warp_screen(&game_state, selected_system, &trade_message);
         } else {
             // Main game screen
-            // Draw game UI
+            let left_col = 20.0;
+            let right_col = screen_width() / 2.0 + 20.0;
+            
+            // LEFT COLUMN - Commander & System Info
             draw_text(
                 &format!("Commander: {}", game_state.commander_name),
-                20.0,
+                left_col,
                 30.0,
                 20.0,
                 WHITE,
             );
             
             draw_text(
-                &format!("Credits: {}", game_state.credits),
-                20.0,
+                &format!("Credits: {} cr", game_state.credits),
+                left_col,
                 60.0,
-                20.0,
+                18.0,
                 GOLD,
             );
             
+            // System info
+            let current_system = &game_state.solar_systems[game_state.current_system_id];
+            let tech_names = ["Pre-Agri", "Agri", "Medieval", "Renaissance", "Early Ind", "Industrial", "Post-Ind", "Hi-Tech"];
+            let tech_idx = current_system.tech_level as usize;
+            let tech_name = if tech_idx < tech_names.len() { tech_names[tech_idx] } else { "Unknown" };
+            
             draw_text(
                 &format!("System: {}", game_state.current_system_name()),
-                20.0,
+                left_col,
                 90.0,
-                20.0,
+                18.0,
                 SKYBLUE,
             );
             
             draw_text(
+                &format!("Tech Level: {}", tech_name),
+                left_col,
+                115.0,
+                16.0,
+                LIGHTGRAY,
+            );
+            
+            draw_text(
+                &format!("Days: {}", game_state.days),
+                left_col,
+                140.0,
+                16.0,
+                LIGHTGRAY,
+            );
+            
+            // Cargo info
+            let total_cargo = game_state.ship.total_cargo();
+            let max_cargo = game_state.ship.cargo_bays_available() + total_cargo;
+            draw_text(
+                &format!("Cargo: {}/{}", total_cargo, max_cargo),
+                left_col,
+                170.0,
+                18.0,
+                YELLOW,
+            );
+            
+            // Cargo list - show what we're carrying
+            if total_cargo > 0 {
+                draw_text("Carrying:", left_col, 195.0, 14.0, LIGHTGRAY);
+                let mut cargo_line = 215.0;
+                for i in 0..10 {
+                    let amount = game_state.ship.cargo[i];
+                    if amount > 0 {
+                        let good = TradeGood::from_index(i);
+                        draw_text(&format!("  {} {}", amount, good.name()), left_col, cargo_line, 12.0, WHITE);
+                        cargo_line += 18.0;
+                        if cargo_line > 350.0 { break; }
+                    }
+                }
+            }
+            
+            // RIGHT COLUMN - Ship & Fuel Info
+            draw_text(
+                &format!("Ship: Flea"),
+                right_col,
+                30.0,
+                18.0,
+                WHITE,
+            );
+            
+            draw_text(
+                &format!("Hull: {}", game_state.ship.hull),
+                right_col,
+                60.0,
+                16.0,
+                if game_state.ship.hull > 15 { GREEN } else { RED },
+            );
+            
+            draw_text(
                 &format!("Fuel: {}/{}", game_state.ship.fuel, game_state.ship.max_fuel()),
-                20.0,
-                120.0,
-                20.0,
+                right_col,
+                90.0,
+                18.0,
                 GREEN,
             );
             
@@ -318,21 +386,28 @@ async fn main() {
             let fuel_cost = get_fuel_cost(&game_state);
             let max_buyable_fuel = max_fuel_buyable(&game_state);
             draw_text(
-                &format!("Fuel Cost: {} cr/unit | Can buy: {}", fuel_cost, max_buyable_fuel),
-                20.0,
-                150.0,
-                16.0,
+                &format!("Fuel Cost: {} cr/unit", fuel_cost),
+                right_col,
+                120.0,
+                14.0,
+                LIGHTGRAY,
+            );
+            
+            draw_text(
+                &format!("Can buy: {} units", max_buyable_fuel),
+                right_col,
+                140.0,
+                14.0,
                 LIGHTGRAY,
             );
             
             // Draw ship sprite if assets are loaded
             if let Some(ref assets) = assets {
-                draw_ship(assets, "flea", screen_width() / 2.0 - 24.0, 150.0, false, false, 1.0);
-                draw_text("Your Ship (Flea)", screen_width() / 2.0 - 60.0, 220.0, 16.0, LIGHTGRAY);
+                draw_ship(assets, "flea", right_col - 10.0, 170.0, false, false, 1.0);
             } else {
                 // Fallback: draw simple geometric ship
-                let ship_x = screen_width() / 2.0;
-                let ship_y = 180.0;
+                let ship_x = right_col + 10.0;
+                let ship_y = 200.0;
                 draw_triangle(
                     vec2(ship_x, ship_y - 20.0),
                     vec2(ship_x - 15.0, ship_y + 20.0),
