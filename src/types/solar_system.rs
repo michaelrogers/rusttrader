@@ -18,7 +18,7 @@ pub struct SolarSystem {
     pub qty: [i32; 10], // Quantities available for trade goods
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum TechLevel {
     PreAgricultural = 0,
     Agricultural = 1,

@@ -46,9 +46,14 @@ pub struct Ship {
     pub fuel: i32,
     pub hull: i32,
     pub crew: Vec<usize>, // Indices into crew member array
-}
-
-impl Ship {
+    
+    // Upgrades (cumulative levels/counts)
+    pub cargo_expansion: u8,        // 0-2: +5 bays per level
+    pub fuel_expansion: u8,         // 0-2: +50 capacity per level
+    pub weapon_rating: u8,          // 0-5: combat effectiveness
+    pub shield_installed: bool,     // Shield generator active
+    pub hull_reinforcement: u8,     // 0-2: +10 hull per level
+}impl Ship {
     /// Create a new Flea (starting ship)
     pub fn new_flea() -> Self {
         Self {
@@ -62,6 +67,11 @@ impl Ship {
             fuel: 14, // Flea has 14 fuel
             hull: 25, // Flea hull strength
             crew: vec![0], // Just the commander
+            cargo_expansion: 0,
+            fuel_expansion: 0,
+            weapon_rating: 0,
+            shield_installed: false,
+            hull_reinforcement: 0,
         }
     }
     
@@ -70,11 +80,14 @@ impl Ship {
     }
     
     pub fn cargo_bays_available(&self) -> i32 {
-        SHIP_TYPES[self.ship_type].cargo_bays - self.total_cargo()
+        let base_bays = SHIP_TYPES[self.ship_type].cargo_bays;
+        let expanded_bays = base_bays + (self.cargo_expansion as i32 * 5);
+        expanded_bays - self.total_cargo()
     }
     
     pub fn max_fuel(&self) -> i32 {
-        SHIP_TYPES[self.ship_type].fuel_tanks * 10
+        let base_capacity = SHIP_TYPES[self.ship_type].fuel_tanks * 10;
+        base_capacity + (self.fuel_expansion as i32 * 50)
     }
 }
 
