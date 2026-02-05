@@ -389,7 +389,6 @@ This is a port of the original Space Trader game. All original artwork and game 
 
 ---
 
-**Happy Trading!**
 
 
 ## License

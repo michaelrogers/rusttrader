@@ -11,7 +11,7 @@ mod assets;
 use macroquad::prelude::*;
 use types::{GameState, TradeGood};
 use assets::{GameAssets, draw_ship};
-use game::trading::{buy_cargo, sell_cargo, max_buyable};
+use game::trading::{buy_cargo, sell_cargo, max_buyable, buy_fuel, get_fuel_cost, max_fuel_buyable};
 use game::pricing::{get_buy_price, determine_prices};
 use game::travel::{warp_to_system, systems_in_range};
 
@@ -307,11 +307,22 @@ async fn main() {
             );
             
             draw_text(
-                &format!("Fuel: {}", game_state.ship.fuel),
+                &format!("Fuel: {}/{}", game_state.ship.fuel, game_state.ship.max_fuel()),
                 20.0,
                 120.0,
                 20.0,
                 GREEN,
+            );
+            
+            // Show fuel cost and how much can be bought
+            let fuel_cost = get_fuel_cost(&game_state);
+            let max_buyable_fuel = max_fuel_buyable(&game_state);
+            draw_text(
+                &format!("Fuel Cost: {} cr/unit | Can buy: {}", fuel_cost, max_buyable_fuel),
+                20.0,
+                150.0,
+                16.0,
+                LIGHTGRAY,
             );
             
             // Draw ship sprite if assets are loaded
@@ -340,7 +351,7 @@ async fn main() {
             );
             
             draw_text(
-                "T - Trade, W - Warp, S - Save, Q - Quit",
+                "T - Trade, W - Warp, F - Refuel, S - Save, Q - Quit",
                 20.0,
                 screen_height() - 90.0,
                 16.0,
@@ -526,6 +537,31 @@ async fn main() {
             if is_key_pressed(KeyCode::W) {
                 current_screen = GameScreen::Warp;
                 selected_system = 0;
+            }
+            
+            // Handle fuel purchasing
+            if is_key_pressed(KeyCode::F) {
+                let max_buyable_fuel = max_fuel_buyable(&game_state);
+                if max_buyable_fuel > 0 {
+                    match buy_fuel(&mut game_state, max_buyable_fuel) {
+                        Ok(_) => {
+                            let fuel_cost = get_fuel_cost(&game_state);
+                            trade_message = format!("Bought {} fuel for {} cr", 
+                                max_buyable_fuel, fuel_cost * max_buyable_fuel);
+                            message_timer = 2.0;
+                        }
+                        Err(e) => {
+                            trade_message = e;
+                            message_timer = 2.0;
+                        }
+                    }
+                } else if game_state.ship.fuel >= game_state.ship.max_fuel() {
+                    trade_message = "Fuel tanks already full!".to_string();
+                    message_timer = 2.0;
+                } else {
+                    trade_message = "Not enough credits to buy fuel".to_string();
+                    message_timer = 2.0;
+                }
             }
             
             if is_key_pressed(KeyCode::S) {

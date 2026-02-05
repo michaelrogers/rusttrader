@@ -65,3 +65,58 @@ pub fn max_buyable(game_state: &GameState, good: TradeGood) -> i32 {
     
     can_afford.min(cargo_space).min(available)
 }
+
+/// Get fuel cost per unit at current system
+pub fn get_fuel_cost(game_state: &GameState) -> i32 {
+    use crate::types::ship::SHIP_TYPES;
+    SHIP_TYPES[game_state.ship.ship_type].cost_of_fuel
+}
+
+/// Calculate maximum fuel that can be purchased given current credits
+pub fn max_fuel_buyable(game_state: &GameState) -> i32 {
+    let fuel_cost = get_fuel_cost(game_state);
+    if fuel_cost <= 0 {
+        return 0;
+    }
+    
+    let can_afford = game_state.credits / fuel_cost;
+    let max_fuel = game_state.ship.max_fuel();
+    let current_fuel = game_state.ship.fuel;
+    let space_available = max_fuel - current_fuel;
+    
+    can_afford.min(space_available).max(0)
+}
+
+/// Purchase fuel at the current system
+pub fn buy_fuel(game_state: &mut GameState, amount: i32) -> Result<(), String> {
+    use crate::types::ship::SHIP_TYPES;
+    
+    // Validate amount
+    if amount <= 0 {
+        return Err("Must buy at least 1 fuel".to_string());
+    }
+    
+    // Check max fuel capacity
+    let max_fuel = game_state.ship.max_fuel();
+    if game_state.ship.fuel >= max_fuel {
+        return Err("Fuel tanks already full".to_string());
+    }
+    
+    // Check how much space is available
+    let space_available = max_fuel - game_state.ship.fuel;
+    let amount_to_buy = amount.min(space_available);
+    
+    // Check if player has enough credits
+    let fuel_cost = SHIP_TYPES[game_state.ship.ship_type].cost_of_fuel;
+    let total_cost = fuel_cost * amount_to_buy;
+    
+    if game_state.credits < total_cost {
+        return Err(format!("Not enough credits (need {} cr, have {})", total_cost, game_state.credits));
+    }
+    
+    // Execute purchase
+    game_state.credits -= total_cost;
+    game_state.ship.fuel += amount_to_buy;
+    
+    Ok(())
+}
