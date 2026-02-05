@@ -761,15 +761,6 @@ async fn main() {
     loop {
         clear_background(Color::from_rgba(10, 10, 30, 255));
         
-        // Check for random encounters when on main screen
-        if current_screen == GameScreen::Main && current_encounter.is_none() && message_timer <= 0.0 {
-            if let Some(encounter) = check_for_encounter(&game_state) {
-                current_encounter = Some(encounter);
-                current_screen = GameScreen::Encounter;
-                encounter_message.clear();
-            }
-        }
-        
         // Draw screen based on current state
         if current_screen == GameScreen::Encounter {
             if let Some(ref encounter) = current_encounter {
@@ -1113,8 +1104,16 @@ async fn main() {
                                 trade_message = format!("Successfully warped to {}!", 
                                     game_state.current_system_name());
                                 message_timer = 2.0;
-                                current_screen = GameScreen::Main;
                                 selected_system = 0;
+                                
+                                // Check for random encounters after warp
+                                if let Some(encounter) = check_for_encounter(&game_state) {
+                                    current_encounter = Some(encounter);
+                                    current_screen = GameScreen::Encounter;
+                                    encounter_message.clear();
+                                } else {
+                                    current_screen = GameScreen::Main;
+                                }
                             }
                             Err(e) => {
                                 trade_message = e;
