@@ -16,6 +16,7 @@ use game::pricing::{get_buy_price, determine_prices};
 use game::travel::{warp_to_system, systems_in_range};
 use game::encounter::{check_for_encounter, resolve_encounter, Encounter, EncounterChoice};
 use game::upgrades::{get_available_upgrades, purchase_upgrade};
+use game::repair::{calculate_repair_cost_per_point, get_max_hull, calculate_full_repair_cost, repair_ship, repair_full, can_repair};
 
 #[derive(PartialEq)]
 enum GameScreen {
@@ -25,6 +26,7 @@ enum GameScreen {
     SystemInfo,
     Encounter,
     Shipyard,
+    Repair,
 }
 
 fn draw_warp_screen(game_state: &GameState, selected: usize, message: &str) {
@@ -291,6 +293,143 @@ fn draw_text_with_limits(text: &str, x: f32, mut y: f32, font_size: f32, color: 
     }
 }
 
+fn draw_repair_screen(game_state: &GameState, message: &str) {
+    clear_background(Color::from_rgba(10, 10, 30, 255));
+    
+    // Header
+    draw_rectangle(0.0, 0.0, screen_width(), 50.0, Color::from_rgba(80, 0, 160, 255));
+    draw_text("Repair Dock", 20.0, 25.0, 28.0, WHITE);
+    draw_text(&format!("Credits: {}", game_state.credits), screen_width() - 200.0, 25.0, 18.0, GOLD);
+    
+    if !can_repair(game_state) {
+        draw_text(
+            "No repair facilities available at this tech level",
+            screen_width() / 2.0 - 240.0,
+            screen_height() / 2.0,
+            20.0,
+            RED,
+        );
+    } else {
+        let max_hull = get_max_hull(game_state);
+        let damage_taken = max_hull - game_state.ship.hull;
+        let cost_per_point = calculate_repair_cost_per_point(game_state);
+        let full_repair_cost = calculate_full_repair_cost(game_state);
+        
+        // Hull Status
+        let left = 40.0;
+        let y_start = 90.0;
+        
+        draw_text("Hull Status:", left, y_start, 18.0, LIGHTGRAY);
+        
+        let hull_color = if game_state.ship.hull > 15 { GREEN } else { RED };
+        draw_text(
+            &format!("{} / {} HP", game_state.ship.hull, max_hull),
+            left,
+            y_start + 30.0,
+            18.0,
+            hull_color,
+        );
+        
+        // Damage bar
+        let bar_width = 300.0;
+        let bar_height = 20.0;
+        let bar_x = left;
+        let bar_y = y_start + 60.0;
+        
+        draw_rectangle(bar_x, bar_y, bar_width, bar_height, Color::from_rgba(50, 50, 50, 255));
+        let repair_percentage = game_state.ship.hull as f32 / max_hull as f32;
+        draw_rectangle(bar_x, bar_y, bar_width * repair_percentage, bar_height, GREEN);
+        draw_rectangle_lines(bar_x, bar_y, bar_width, bar_height, 2.0, WHITE);
+        
+        // Repair Options
+        let option_y = y_start + 120.0;
+        draw_text("Repair Options:", left, option_y, 18.0, LIGHTGRAY);
+        
+        // Repair 10 hp
+        let repair_small = 10.min(damage_taken);
+        let cost_small = calculate_repair_cost_per_point(game_state) * repair_small;
+        let affordable_small = game_state.credits >= cost_small && damage_taken > 0;
+        let color_small = if affordable_small { GREEN } else { RED };
+        let cost_small_str = if cost_small > 0 { format!("{} cr", cost_small) } else { "FREE".to_string() };
+        
+        draw_text(
+            &format!("1 - Repair {} HP ({})", repair_small, cost_small_str),
+            left,
+            option_y + 35.0,
+            14.0,
+            color_small,
+        );
+        
+        // Repair 50 hp
+        let repair_medium = 50.min(damage_taken);
+        let cost_medium = calculate_repair_cost_per_point(game_state) * repair_medium;
+        let affordable_medium = game_state.credits >= cost_medium && damage_taken > 0;
+        let color_medium = if affordable_medium { GREEN } else { RED };
+        let cost_medium_str = if cost_medium > 0 { format!("{} cr", cost_medium) } else { "FREE".to_string() };
+        
+        draw_text(
+            &format!("2 - Repair {} HP ({})", repair_medium, cost_medium_str),
+            left,
+            option_y + 55.0,
+            14.0,
+            color_medium,
+        );
+        
+        // Repair Full
+        let affordable_full = game_state.credits >= full_repair_cost && damage_taken > 0;
+        let color_full = if affordable_full { GREEN } else { RED };
+        let full_repair_str = if full_repair_cost > 0 { format!("{} cr", full_repair_cost) } else { "FREE".to_string() };
+        
+        draw_text(
+            &format!("3 - Repair All Damage ({})", full_repair_str),
+            left,
+            option_y + 75.0,
+            14.0,
+            color_full,
+        );
+        
+        // Cost per point info
+        draw_text(
+            &format!("Cost per HP: {} cr", cost_per_point),
+            left,
+            option_y + 110.0,
+            12.0,
+            LIGHTGRAY,
+        );
+        
+        if damage_taken == 0 {
+            draw_text(
+                "Ship is fully repaired!",
+                left,
+                option_y + 140.0,
+                14.0,
+                SKYBLUE,
+            );
+        }
+    }
+    
+    // Controls
+    let inst_y = screen_height() - 100.0;
+    draw_text("Controls:", 20.0, inst_y, 18.0, LIGHTGRAY);
+    draw_text(
+        "1 - Repair 10 HP  |  2 - Repair 50 HP  |  3 - Repair All  |  ESC/Q - Back",
+        20.0,
+        inst_y + 25.0,
+        14.0,
+        LIGHTGRAY,
+    );
+    
+    // Show message if any
+    if !message.is_empty() {
+        let msg_width = measure_text(message, None, 18, 1.0).width;
+        let msg_x = (screen_width() - msg_width) / 2.0;
+        draw_rectangle(msg_x - 10.0, screen_height() / 2.0 + 50.0, msg_width + 20.0, 50.0,
+            Color::from_rgba(0, 0, 0, 200));
+        let msg_color = if message.contains("Repaired") { GREEN } else { RED };
+        draw_text(message, msg_x, screen_height() / 2.0 + 75.0, 18.0, msg_color);
+    }
+}
+
 fn draw_shipyard_screen(game_state: &GameState, selected: usize, message: &str) {
     clear_background(Color::from_rgba(10, 10, 30, 255));
     
@@ -548,6 +687,8 @@ async fn main() {
             draw_warp_screen(&game_state, selected_system, &trade_message);
         } else if current_screen == GameScreen::Shipyard {
             draw_shipyard_screen(&game_state, selected_upgrade, &trade_message);
+        } else if current_screen == GameScreen::Repair {
+            draw_repair_screen(&game_state, &trade_message);
         } else {
             // Main game screen
             let left_col = 20.0;
@@ -695,7 +836,7 @@ async fn main() {
             );
             
             draw_text(
-                "T - Trade, W - Warp, I - Info, U - Upgrade, F - Refuel, S - Save, Q - Quit",
+                "T - Trade, W - Warp, I - Info, U - Upgrade, R - Repair, F - Refuel, S - Save, Q - Quit",
                 20.0,
                 screen_height() - 90.0,
                 16.0,
@@ -962,6 +1103,56 @@ async fn main() {
                 trade_message.clear();
                 selected_upgrade = 0;
             }
+        } else if current_screen == GameScreen::Repair {
+            if can_repair(&game_state) {
+                // Repair 10 HP
+                if is_key_pressed(KeyCode::Key1) {
+                    match repair_ship(&mut game_state, 10) {
+                        Ok(msg) => {
+                            trade_message = msg;
+                            message_timer = 2.0;
+                        }
+                        Err(e) => {
+                            trade_message = e;
+                            message_timer = 2.0;
+                        }
+                    }
+                }
+                
+                // Repair 50 HP
+                if is_key_pressed(KeyCode::Key2) {
+                    match repair_ship(&mut game_state, 50) {
+                        Ok(msg) => {
+                            trade_message = msg;
+                            message_timer = 2.0;
+                        }
+                        Err(e) => {
+                            trade_message = e;
+                            message_timer = 2.0;
+                        }
+                    }
+                }
+                
+                // Repair All
+                if is_key_pressed(KeyCode::Key3) {
+                    match repair_full(&mut game_state) {
+                        Ok(msg) => {
+                            trade_message = msg;
+                            message_timer = 2.0;
+                        }
+                        Err(e) => {
+                            trade_message = e;
+                            message_timer = 2.0;
+                        }
+                    }
+                }
+            }
+            
+            // Exit repair screen
+            if is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::Q) {
+                current_screen = GameScreen::Main;
+                trade_message.clear();
+            }
         } else {
             // Main screen input
             if is_key_pressed(KeyCode::Q) || is_key_pressed(KeyCode::Escape) {
@@ -985,6 +1176,10 @@ async fn main() {
             if is_key_pressed(KeyCode::U) {
                 current_screen = GameScreen::Shipyard;
                 selected_upgrade = 0;
+            }
+            
+            if is_key_pressed(KeyCode::R) {
+                current_screen = GameScreen::Repair;
             }
             
             // Handle fuel purchasing
