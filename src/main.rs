@@ -17,6 +17,7 @@ use game::travel::{warp_to_system, systems_in_range};
 use game::encounter::{check_for_encounter, resolve_encounter, Encounter, EncounterChoice};
 use game::upgrades::{get_available_upgrades, purchase_upgrade};
 use game::repair::{calculate_repair_cost_per_point, get_max_hull, calculate_full_repair_cost, repair_ship, repair_full, can_repair};
+use game::ships::{get_purchasable_ships, purchase_ship, get_current_ship_info};
 
 #[derive(PartialEq)]
 enum GameScreen {
@@ -27,6 +28,7 @@ enum GameScreen {
     Encounter,
     Shipyard,
     Repair,
+    ShipShop,
 }
 
 fn draw_warp_screen(game_state: &GameState, selected: usize, message: &str) {
@@ -290,6 +292,98 @@ fn draw_text_with_limits(text: &str, x: f32, mut y: f32, font_size: f32, color: 
     
     if !current_line.is_empty() {
         draw_text(&current_line, x, y, font_size, color);
+    }
+}
+
+fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str) {
+    clear_background(Color::from_rgba(10, 10, 30, 255));
+    
+    // Header
+    draw_rectangle(0.0, 0.0, screen_width(), 50.0, Color::from_rgba(0, 160, 80, 255));
+    draw_text("Ship Shop", 20.0, 25.0, 28.0, WHITE);
+    draw_text(&format!("Credits: {}", game_state.credits), screen_width() - 200.0, 25.0, 18.0, GOLD);
+    
+    let _current_ship = get_current_ship_info(game_state);
+    let purchasable = get_purchasable_ships(game_state.solar_systems[game_state.current_system_id].tech_level as i32);
+    
+    if purchasable.is_empty() {
+        draw_text(
+            "No ships available at this tech level",
+            screen_width() / 2.0 - 180.0,
+            screen_height() / 2.0,
+            20.0,
+            LIGHTGRAY,
+        );
+    } else {
+        // Column headers
+        let y_start = 80.0;
+        let name_col = 40.0;
+        let desc_col = 150.0;
+        let stats_col = 450.0;
+        let cost_col = screen_width() - 180.0;
+        
+        draw_text("Ship", name_col, y_start, 16.0, LIGHTGRAY);
+        draw_text("Description", desc_col, y_start, 12.0, LIGHTGRAY);
+        draw_text("Stats", stats_col, y_start, 12.0, LIGHTGRAY);
+        draw_text("Cost", cost_col, y_start, 16.0, LIGHTGRAY);
+        
+        // Draw ships list
+        for (i, ship) in purchasable.iter().enumerate() {
+            let y = y_start + 40.0 + (i as f32 * 70.0);
+            
+            // Highlight selected
+            if i == selected {
+                draw_rectangle(15.0, y - 20.0, screen_width() - 30.0, 65.0, Color::from_rgba(50, 100, 50, 128));
+            }
+            
+            // Current ship indicator
+            let is_current = ship.ship_type_id == game_state.ship.ship_type;
+            let color = if is_current { YELLOW } else { WHITE };
+            
+            let ship_label = if is_current {
+                format!("{} (CURRENT)", ship.name)
+            } else {
+                ship.name.to_string()
+            };
+            
+            draw_text(&ship_label, name_col, y, 16.0, color);
+            draw_text_with_limits(ship.description, desc_col, y, 11.0, LIGHTGRAY, 280.0);
+            
+            let stats = format!(
+                "Cargo: {} | Weapon: {} | Shield: {} | Hull: {}",
+                ship.cargo_bays, ship.weapon_slots, ship.shield_slots, ship.hull_strength
+            );
+            draw_text(&stats, stats_col, y, 10.0, SKYBLUE);
+            
+            if is_current {
+                draw_text("OWNED", cost_col, y, 14.0, YELLOW);
+            } else {
+                let cost = ship.upgrade_cost_from_current(game_state);
+                let cost_color = if game_state.credits >= cost { GREEN } else { RED };
+                draw_text(&format!("{} cr", cost), cost_col, y, 16.0, cost_color);
+            }
+        }
+    }
+    
+    // Controls
+    let inst_y = screen_height() - 100.0;
+    draw_text("Controls:", 20.0, inst_y, 18.0, LIGHTGRAY);
+    draw_text(
+        "↑↓ - Select  |  ENTER/B - Buy  |  ESC/Q - Back",
+        20.0,
+        inst_y + 25.0,
+        14.0,
+        LIGHTGRAY,
+    );
+    
+    // Show message if any
+    if !message.is_empty() {
+        let msg_width = measure_text(message, None, 18, 1.0).width;
+        let msg_x = (screen_width() - msg_width) / 2.0;
+        draw_rectangle(msg_x - 10.0, screen_height() / 2.0 + 50.0, msg_width + 20.0, 50.0,
+            Color::from_rgba(0, 0, 0, 200));
+        let msg_color = if message.contains("Purchased") { GREEN } else { RED };
+        draw_text(message, msg_x, screen_height() / 2.0 + 75.0, 18.0, msg_color);
     }
 }
 
@@ -689,6 +783,8 @@ async fn main() {
             draw_shipyard_screen(&game_state, selected_upgrade, &trade_message);
         } else if current_screen == GameScreen::Repair {
             draw_repair_screen(&game_state, &trade_message);
+        } else if current_screen == GameScreen::ShipShop {
+            draw_ship_shop_screen(&game_state, selected_upgrade, &trade_message);
         } else {
             // Main game screen
             let left_col = 20.0;
@@ -836,7 +932,7 @@ async fn main() {
             );
             
             draw_text(
-                "T - Trade, W - Warp, I - Info, U - Upgrade, R - Repair, F - Refuel, S - Save, Q - Quit",
+                "T - Trade, W - Warp, I - Info, U - Upgrade, R - Repair, H - Ships, F - Refuel, S - Save, Q - Quit",
                 20.0,
                 screen_height() - 90.0,
                 16.0,
@@ -1153,6 +1249,45 @@ async fn main() {
                 current_screen = GameScreen::Main;
                 trade_message.clear();
             }
+        } else if current_screen == GameScreen::ShipShop {
+            let purchasable = get_purchasable_ships(game_state.solar_systems[game_state.current_system_id].tech_level as i32);
+            
+            if !purchasable.is_empty() {
+                // Navigation
+                if is_key_pressed(KeyCode::Up) && selected_upgrade > 0 {
+                    selected_upgrade -= 1;
+                }
+                if is_key_pressed(KeyCode::Down) && selected_upgrade < purchasable.len() - 1 {
+                    selected_upgrade += 1;
+                }
+                
+                // Purchase ship
+                if (is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::B)) && selected_upgrade < purchasable.len() {
+                    let ship = &purchasable[selected_upgrade];
+                    if ship.ship_type_id != game_state.ship.ship_type {
+                        match purchase_ship(&mut game_state, ship.ship_type_id) {
+                            Ok(msg) => {
+                                trade_message = msg;
+                                message_timer = 2.0;
+                            }
+                            Err(e) => {
+                                trade_message = e;
+                                message_timer = 2.0;
+                            }
+                        }
+                    } else {
+                        trade_message = "You already own this ship!".to_string();
+                        message_timer = 2.0;
+                    }
+                }
+            }
+            
+            // Exit ship shop
+            if is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::Q) {
+                current_screen = GameScreen::Main;
+                trade_message.clear();
+                selected_upgrade = 0;
+            }
         } else {
             // Main screen input
             if is_key_pressed(KeyCode::Q) || is_key_pressed(KeyCode::Escape) {
@@ -1180,6 +1315,11 @@ async fn main() {
             
             if is_key_pressed(KeyCode::R) {
                 current_screen = GameScreen::Repair;
+            }
+            
+            if is_key_pressed(KeyCode::H) {
+                current_screen = GameScreen::ShipShop;
+                selected_upgrade = 0;
             }
             
             // Handle fuel purchasing
