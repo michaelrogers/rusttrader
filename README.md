@@ -6,20 +6,20 @@ A modern Rust port of the classic [Space Trader](https://github.com/videogamepre
 
 ## Features
 
-### ✅ Currently Implemented
+### Currently Implemented
 
 **Core Gameplay**:
-- 🌌 **Galaxy System** - 120 procedurally generated solar systems with unique properties
-- 💰 **Trading System** - Buy and sell 10 types of goods with dynamic pricing
-- 🚀 **Warp Travel** - Navigate between systems, manage fuel consumption
-- 🎮 **Full Game Loop** - Trade → Warp → Trade → Repeat
+- **Galaxy System** - 120 procedurally generated solar systems with unique properties
+- **Trading System** - Buy and sell 10 types of goods with dynamic pricing
+- **Warp Travel** - Navigate between systems, manage fuel consumption
+- **Full Game Loop** - Trade → Warp → Trade → Repeat
 
 **Technical Features**:
-- 📦 **Data Structures** - Complete game state with ships, crew, equipment, systems
-- 💾 **Save/Load System** - JSON-based game persistence
-- 🎨 **Asset System** - Texture loading with fallback rendering
-- 🖼️ **Placeholder Assets** - 65 generated sprites for development
-- 🛠️ **Asset Extraction Tools** - Scripts to extract original Palm OS artwork
+- **Data Structures** - Complete game state with ships, crew, equipment, systems
+- **Save/Load System** - JSON-based game persistence
+- **Asset System** - Texture loading with fallback rendering
+- **Placeholder Assets** - 65 generated sprites for development
+- **Asset Extraction Tools** - Scripts to extract original Palm OS artwork
 
 **UI Screens**:
 - Main menu with new game / load game
@@ -27,11 +27,11 @@ A modern Rust port of the classic [Space Trader](https://github.com/videogamepre
 - Warp screen with range-based system selection
 - Main game screen with ship display
 
-### 🚧 In Progress
+### In Progress
 
 Nothing actively in development - core loop complete!
 
-### 📋 Planned Features (Roadmap)
+### Planned Features (Roadmap)
 
 See [Roadmap](#roadmap) section below for detailed next steps.
 
@@ -389,7 +389,7 @@ This is a port of the original Space Trader game. All original artwork and game 
 
 ---
 
-**Happy Trading! 🚀**
+**Happy Trading!**
 
 
 ## License
