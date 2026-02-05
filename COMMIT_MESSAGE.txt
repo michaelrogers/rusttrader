@@ -1,0 +1,94 @@
+Initial commit: Playable Space Trader Rust port
+
+This commit represents the first fully playable version of Space Trader
+ported from the original Palm OS C implementation to Rust.
+
+## Core Features Implemented
+
+### Gameplay
+- Complete trading system with buy/sell mechanics
+- Warp/travel system with fuel consumption and range calculation
+- 120 procedurally generated solar systems with unique properties
+- Dynamic pricing based on system tech levels
+- Full game loop: Trade → Warp → Trade
+
+### Technical
+- Rust 2021 with macroquad 0.4 game engine
+- Modular architecture: types/, game/, ui/, save/, assets.rs
+- JSON-based save/load system (scaffolded)
+- Asset loading with texture caching and fallback rendering
+- 65 placeholder sprites generated via Python
+
+### Data Structures
+- Complete Ship system (15 ship types from original)
+- SolarSystem with coordinates, tech levels, politics, resources
+- TradeGood with 10 trade items and dynamic pricing
+- Equipment (weapons, shields, gadgets) - data only
+- CrewMember system - data only
+- GameState with days counter and visited systems tracking
+
+### UI Screens
+- Main menu (new/load/quit)
+- Main game screen with ship display
+- Trading screen with full inventory management
+- Warp screen with range-based system selection
+
+### Tools & Documentation
+- generate_placeholder_assets.py - Creates 65 development sprites
+- extract_palm_resources.py - Extracts original Palm OS artwork
+- ASSET_CONVERSION.md - Comprehensive asset extraction guide
+- README.md - Full documentation with roadmap
+- CONTRIBUTING.md - Contribution guidelines
+- CHANGELOG.md - Version history
+
+## Controls
+
+Main Screen: T (Trade), W (Warp), S (Save), Q (Quit)
+Trading: ↑↓ (Select), B (Buy 1), 5 (Buy 5), S (Sell 1), A (Sell All)
+Warp: ↑↓ (Select), Enter/W (Warp), ESC/Q (Back)
+
+## Build & Run
+
+```bash
+cd tools && python3 generate_placeholder_assets.py && cd ..
+cargo run
+```
+
+## What's Working
+
+✅ Full trading loop functional
+✅ Warp travel with fuel consumption
+✅ Price regeneration on system arrival
+✅ Cargo space management
+✅ Credit tracking
+✅ Distance-based travel range
+✅ System visited tracking
+✅ Game progression (days counter)
+
+## What's Next (Phase 1 - See README)
+
+- Fuel purchase/refueling system
+- Ship repairs
+- Improved UI with status displays
+- Ship upgrades and equipment purchasing
+- Basic random encounters
+- Combat system
+
+## Technical Notes
+
+- 15 compiler warnings remain for intentionally unused future features
+- All warnings suppressed with #[allow(dead_code)] or #[allow(unused_imports)]
+- Release build compiles cleanly
+- No runtime errors in core gameplay loop
+
+## Credits
+
+Original Space Trader by Pieter Spronck (2000-2002)
+Original artwork by Alexander Lawrence
+Licensed under GNU GPL v2+
+
+---
+
+Files: 31 added
+Additions: ~4500 lines of Rust code
+Test Status: Manual testing passed, unit tests pending
