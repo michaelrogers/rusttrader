@@ -49,11 +49,12 @@ impl Encounter {
 }
 
 pub fn check_for_encounter(game_state: &GameState) -> Option<Encounter> {
-    // Encounter probability increases with:
-    // - Higher difficulty setting
-    // - More cargo/credits
-    // - Lower police record (more pirate encounters)
-    // - Current tech level of system
+    // Original Space Trader encounter system:
+    // - Uses GetRandom(44 - (2 * Difficulty)) for encounter test
+    // - On Easy: GetRandom(42), Hard: GetRandom(40), etc.
+    // - Compared against politics strength values (typically 0-7)
+    // - This gives roughly 15-20% base encounter rate
+    // - Doubled rate (50%+) for more frequent encounters as requested
     
     use std::collections::hash_map::RandomState;
     use std::hash::{BuildHasher, Hash, Hasher};
@@ -63,10 +64,11 @@ pub fn check_for_encounter(game_state: &GameState) -> Option<Encounter> {
     let day_hash = (game_state.days as u64).wrapping_mul(73856093);
     let seed = hasher.finish() ^ day_hash;
     
-    // Simplified encounter probability: ~20% chance
+    // Encounter probability: ~50% chance (increased from 20%)
+    // Original was roughly 15-20%, we're making it much more frequent
     let encounter_roll = (seed % 100) as i32;
     
-    if encounter_roll < 20 {
+    if encounter_roll < 50 {
         let encounter_type_roll = (seed / 100) % 4;
         let encounter_type = match encounter_type_roll {
             0 => EncounterType::Trader,
