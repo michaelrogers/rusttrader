@@ -3,6 +3,7 @@
 use macroquad::prelude::*;
 use crate::types::GameState;
 
+#[allow(dead_code)]
 pub async fn draw_game_screen(game_state: &GameState) {
     clear_background(BLACK);
     

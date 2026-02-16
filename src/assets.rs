@@ -6,12 +6,14 @@
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 pub struct GameAssets {
     pub ships: HashMap<String, Texture2D>,
     pub icons: HashMap<String, Texture2D>,
     pub ui: HashMap<String, Texture2D>,
 }
 
+#[allow(dead_code)]
 impl GameAssets {
     /// Load all game assets from the assets directory
     pub async fn load() -> Result<Self, String> {
@@ -118,6 +120,7 @@ pub fn draw_ship(
 }
 
 /// Helper function to draw an encounter icon
+#[allow(dead_code)]
 pub fn draw_icon(assets: &GameAssets, icon_type: &str, x: f32, y: f32) {
     if let Some(texture) = assets.get_icon(icon_type) {
         draw_texture(texture, x, y, WHITE);
@@ -125,6 +128,7 @@ pub fn draw_icon(assets: &GameAssets, icon_type: &str, x: f32, y: f32) {
 }
 
 /// Helper function to draw a system marker
+#[allow(dead_code)]
 pub fn draw_system_marker(assets: &GameAssets, marker_type: &str, x: f32, y: f32) {
     if let Some(texture) = assets.get_ui(marker_type) {
         draw_texture(texture, x, y, WHITE);

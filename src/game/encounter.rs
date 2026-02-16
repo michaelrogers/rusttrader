@@ -1,10 +1,9 @@
 // Space encounter system (pirates, police, traders)
 
-use crate::types::GameState;
+use crate::types::{GameState, TradeGood};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EncounterType {
-    None,
     Trader,
     Pirate,
     Police,
@@ -17,6 +16,7 @@ pub struct Encounter {
     pub description: String,
     pub ship_name: String,
     pub distance_clicks: i32,
+    #[allow(dead_code)]
     pub system_name: String,
 }
 
@@ -43,7 +43,6 @@ impl Encounter {
             EncounterType::Pirate => (200, 0, 0),        // Red
             EncounterType::Police => (0, 150, 0),        // Green
             EncounterType::SpaceMonster => (150, 0, 150), // Purple
-            EncounterType::None => (100, 100, 100),      // Gray
         }
     }
 }
@@ -113,7 +112,7 @@ fn generate_encounter_description(
     
     match encounter_type {
         EncounterType::Trader => {
-            let ship = trader_ships[(system_name.len() % trader_ships.len())];
+            let ship = trader_ships[system_name.len() % trader_ships.len()];
             (
                 format!(
                     "At some distance from {}, you encounter a trader {}.\n\nIt ignores you.",
@@ -123,7 +122,7 @@ fn generate_encounter_description(
             )
         }
         EncounterType::Pirate => {
-            let ship = pirate_ships[(system_name.len() % pirate_ships.len())];
+            let ship = pirate_ships[system_name.len() % pirate_ships.len()];
             (
                 format!(
                     "A pirate {} appears, weapons charged!\n\nThey demand your cargo or your life!",
@@ -133,7 +132,7 @@ fn generate_encounter_description(
             )
         }
         EncounterType::Police => {
-            let ship = police_ships[(system_name.len() % police_ships.len())];
+            let ship = police_ships[system_name.len() % police_ships.len()];
             (
                 format!(
                     "A {} vessel approaches.\n\nThey scan your cargo manifest and ask your business here.",
@@ -143,7 +142,7 @@ fn generate_encounter_description(
             )
         }
         EncounterType::SpaceMonster => {
-            let ship = monster_ships[(system_name.len() % monster_ships.len())];
+            let ship = monster_ships[system_name.len() % monster_ships.len()];
             (
                 format!(
                     "A massive space {} emerges from the cosmic void!\n\nIt appears to view your ship as either prey or threat.",
@@ -152,7 +151,6 @@ fn generate_encounter_description(
                 ship.to_string(),
             )
         }
-        EncounterType::None => ("No encounter.".to_string(), "None".to_string()),
     }
 }
 
@@ -161,37 +159,64 @@ pub fn resolve_encounter(
     encounter: &Encounter,
     player_choice: EncounterChoice,
 ) -> String {
+    let seed = encounter_seed(game_state, encounter.distance_clicks);
     match (&encounter.encounter_type, player_choice) {
         (EncounterType::Trader, EncounterChoice::Ignore) => {
-            "The trader continues on its way.".to_string()
+            let tip = 50 + (seed % 100) as i32;
+            game_state.credits += tip;
+            game_state.police_record_score = (game_state.police_record_score - 2).max(0);
+            format!("The trader shares a market tip. You gain {} credits.", tip)
         }
         (EncounterType::Trader, EncounterChoice::Attack) => {
-            game_state.police_record_score += 10; // Attack increases wanted level
-            format!("You attack the {} and take {} credits!", encounter.ship_name, 500)
+            game_state.police_record_score += 15;
+            game_state.reputation_score = (game_state.reputation_score - 5).min(100);
+            let loot = 300 + (seed % 200) as i32;
+            game_state.credits += loot;
+            if let Some(cargo_msg) = capture_cargo(game_state, seed) {
+                format!("You attack the {} and take {} credits. {}", encounter.ship_name, loot, cargo_msg)
+            } else {
+                format!("You attack the {} and take {} credits!", encounter.ship_name, loot)
+            }
         }
         
         (EncounterType::Pirate, EncounterChoice::Attack) => {
-            let damage = ((game_state.current_system_id as i32) % 20) as i32 + 10;
-            game_state.ship.hull -= damage;
-            if game_state.ship.hull < 0 {
-                game_state.ship.hull = 0;
-            }
-            format!("Fierce battle! You take {} damage.", damage)
+            let player_power = game_state.ship.weapon_rating as i32 + if game_state.ship.shield_installed { 2 } else { 0 };
+            let enemy_power = 3 + (seed % 4) as i32;
+            let damage = (22 - (player_power * 2) + enemy_power).max(5);
+            apply_damage(&mut game_state.ship.hull, damage);
+            let bounty = 200 + (player_power * 40);
+            game_state.credits += bounty;
+            game_state.reputation_score += 2;
+            format!("You drive off the pirates. Hull -{}; bounty +{} cr.", damage, bounty)
         }
         (EncounterType::Pirate, EncounterChoice::Ignore) => {
-            let loss = (game_state.credits / 4).min(5000);
-            game_state.credits -= loss;
-            format!("You pay {} credits in tribute to escape.", loss)
+            if let Some((good_idx, amount)) = steal_cargo(game_state, seed) {
+                let good = TradeGood::from_index(good_idx);
+                format!("Pirates raid your hold and steal {} {}.", amount, good.name())
+            } else {
+                let loss = (game_state.credits / 5).min(3000).max(50);
+                game_state.credits = (game_state.credits - loss).max(0);
+                format!("You pay {} credits in tribute to escape.", loss)
+            }
         }
         
         (EncounterType::Police, EncounterChoice::Attack) => {
-            game_state.police_record_score += 50; // Attacking police is serious
-            "You are now wanted across known space!".to_string()
+            game_state.police_record_score += 60;
+            let damage = 12 + (seed % 10) as i32;
+            apply_damage(&mut game_state.ship.hull, damage);
+            format!("You fire on the police! Hull -{}. Wanted level increased.", damage)
         }
         (EncounterType::Police, EncounterChoice::Ignore) => {
-            if game_state.police_record_score > 50 {
+            let illegal = illegal_cargo_total(game_state);
+            if illegal > 0 {
+                let fine = (illegal * 150).min(6000).max(200);
+                confiscate_illegal(game_state);
+                game_state.credits = (game_state.credits - fine).max(0);
+                game_state.police_record_score += 10;
+                format!("Police confiscate illegal goods and fine you {} credits.", fine)
+            } else if game_state.police_record_score > 50 {
                 let fine = (game_state.police_record_score * 50).min(5000);
-                game_state.credits -= fine;
+                game_state.credits = (game_state.credits - fine).max(0);
                 game_state.police_record_score -= 25;
                 format!("You pay a fine of {} credits.", fine)
             } else {
@@ -200,26 +225,77 @@ pub fn resolve_encounter(
         }
         
         (EncounterType::SpaceMonster, EncounterChoice::Attack) => {
-            let damage = 30 + ((game_state.current_system_id as i32) % 40);
-            game_state.ship.hull -= damage;
-            if game_state.ship.hull < 0 {
-                game_state.ship.hull = 0;
-            }
-            format!("Brutal combat! You take {} damage to your hull!", damage)
+            let player_power = game_state.ship.weapon_rating as i32 + if game_state.ship.shield_installed { 2 } else { 0 };
+            let damage = (35 - player_power * 2).max(10) + (seed % 10) as i32;
+            apply_damage(&mut game_state.ship.hull, damage);
+            let salvage = 400 + (seed % 200) as i32;
+            game_state.credits += salvage;
+            format!("Brutal combat! Hull -{}; salvage +{} cr.", damage, salvage)
         }
         (EncounterType::SpaceMonster, EncounterChoice::Ignore) => {
-            if game_state.ship.fuel > 50 {
-                game_state.ship.fuel -= 50;
+            if game_state.ship.fuel > 25 {
+                game_state.ship.fuel -= 25;
                 "You accelerate away at full burn!".to_string()
             } else {
-                let damage = 15 + ((game_state.current_system_id as i32) % 20);
-                game_state.ship.hull -= damage;
+                let damage = 18 + (seed % 12) as i32;
+                apply_damage(&mut game_state.ship.hull, damage);
                 format!("You manage to escape but take {} damage!", damage)
             }
         }
-        
-        _ => "Encounter resolved.".to_string(),
     }
+}
+
+fn encounter_seed(game_state: &GameState, salt: i32) -> u32 {
+    let base = (game_state.days * 31 + game_state.current_system_id as i32 * 97 + salt) as u32;
+    base ^ (game_state.ship.hull as u32 * 17)
+}
+
+fn apply_damage(hull: &mut i32, damage: i32) {
+    *hull = (*hull - damage).max(0);
+}
+
+fn illegal_cargo_total(game_state: &GameState) -> i32 {
+    let firearms = game_state.ship.cargo[TradeGood::Firearms as usize];
+    let narcotics = game_state.ship.cargo[TradeGood::Narcotics as usize];
+    firearms + narcotics
+}
+
+fn confiscate_illegal(game_state: &mut GameState) {
+    game_state.ship.cargo[TradeGood::Firearms as usize] = 0;
+    game_state.ship.cargo[TradeGood::Narcotics as usize] = 0;
+}
+
+fn steal_cargo(game_state: &mut GameState, seed: u32) -> Option<(usize, i32)> {
+    let mut max_idx = None;
+    let mut max_amt = 0;
+    for i in 0..game_state.ship.cargo.len() {
+        let amt = game_state.ship.cargo[i];
+        if amt > max_amt {
+            max_amt = amt;
+            max_idx = Some(i);
+        }
+    }
+
+    max_idx.map(|idx| {
+        let amt = game_state.ship.cargo[idx];
+        let steal = (1 + (seed % 3) as i32).min(amt.max(1)).max(1);
+        game_state.ship.cargo[idx] -= steal;
+        (idx, steal)
+    })
+}
+
+fn capture_cargo(game_state: &mut GameState, seed: u32) -> Option<String> {
+    if game_state.ship.cargo_bays_available() <= 0 {
+        return None;
+    }
+    let idx = (seed % 10) as usize;
+    let amount = (1 + (seed % 3) as i32).min(game_state.ship.cargo_bays_available());
+    if amount <= 0 {
+        return None;
+    }
+    game_state.ship.cargo[idx] += amount;
+    let good = TradeGood::from_index(idx);
+    Some(format!("You seize {} {}.", amount, good.name()))
 }
 
 #[derive(Clone, Copy, PartialEq)]

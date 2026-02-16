@@ -16,6 +16,8 @@ pub struct SolarSystem {
     pub visited: bool,
     pub price_increase: [i32; 10], // Price increases for trade goods
     pub qty: [i32; 10], // Quantities available for trade goods
+    pub price_history: Vec<Vec<i32>>, // Per-good price history (last few prices)
+    pub news: Vec<String>, // Local news headlines affecting prices
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -190,6 +192,8 @@ impl SolarSystem {
                 visited: false,
                 price_increase: [0; 10],
                 qty: [100; 10], // Start with 100 of each trade good
+                price_history: vec![Vec::new(); 10],
+                news: Vec::new(),
             });
         }
         

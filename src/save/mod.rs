@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // Save/load system
 
 use crate::types::GameState;

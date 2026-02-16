@@ -99,6 +99,7 @@ pub struct ShipInfo {
     pub fuel_capacity: i32,
     pub hull_strength: i32,
     pub min_tech_level: i32,
+    #[allow(dead_code)]
     pub special_traits: &'static str,
 }
 
