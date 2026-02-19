@@ -247,40 +247,56 @@ async fn main() {
         clear_background(Color::from_rgba(10, 10, 30, 255));
         
         // Draw screen based on current state
-        if current_screen == GameScreen::Encounter {
-            if let Some(ref encounter) = current_encounter {
-                draw_encounter_screen(encounter, &encounter_message);
+        match current_screen {
+            GameScreen::Encounter => {
+                if let Some(ref encounter) = current_encounter {
+                    draw_encounter_screen(encounter, &encounter_message);
+                }
             }
-        } else if current_screen == GameScreen::Trading {
-            draw_trading_screen(&game_state, selected_good, &trade_message);
-        } else if current_screen == GameScreen::Warp {
-            draw_warp_screen(
-                &game_state,
-                selected_system,
-                &trade_message,
-                waypoint_system,
-                selected_chart_system,
-                short_range_pan,
-                short_range_zoom,
-            );
-        } else if current_screen == GameScreen::GalacticChart {
-            draw_galactic_chart(
-                &game_state,
-                waypoint_system,
-                selected_chart_system,
-                galactic_pan,
-                galactic_zoom,
-                &search_query,
-                search_active,
-            );
-        } else if current_screen == GameScreen::Shipyard {
-            draw_shipyard_screen(&game_state, selected_upgrade, &trade_message);
-        } else if current_screen == GameScreen::Repair {
-            draw_repair_screen(&game_state, &trade_message);
-        } else if current_screen == GameScreen::ShipShop {
-            draw_ship_shop_screen(&game_state, selected_upgrade, &trade_message);
-        } else {
-            // Main game screen
+            GameScreen::Trading => {
+                draw_trading_screen(&game_state, selected_good, &trade_message);
+            }
+            GameScreen::Warp => {
+                draw_warp_screen(
+                    &game_state,
+                    selected_system,
+                    &trade_message,
+                    waypoint_system,
+                    selected_chart_system,
+                    short_range_pan,
+                    short_range_zoom,
+                );
+            }
+            GameScreen::GalacticChart => {
+                draw_galactic_chart(
+                    &game_state,
+                    waypoint_system,
+                    selected_chart_system,
+                    galactic_pan,
+                    galactic_zoom,
+                    &search_query,
+                    search_active,
+                );
+            }
+            GameScreen::Shipyard => {
+                draw_shipyard_screen(&game_state, selected_upgrade, &trade_message);
+            }
+            GameScreen::Repair => {
+                draw_repair_screen(&game_state, &trade_message);
+            }
+            GameScreen::ShipShop => {
+                draw_ship_shop_screen(&game_state, selected_upgrade, &trade_message);
+            }
+            GameScreen::SystemInfo => {
+                draw_system_info_screen(
+                    &game_state,
+                    show_newspaper_prompt,
+                    newspaper_unlocked,
+                    &trade_message,
+                );
+            }
+            GameScreen::Main => {
+                // Main game screen
             let w = screen_width();
             let h = screen_height();
 
@@ -461,11 +477,12 @@ async fn main() {
             }
 
             // Show message if any
-            if !trade_message.is_empty() {
+                if !trade_message.is_empty() {
                 let msg_width = measure_text(&trade_message, None, 20, 1.0).width;
                 let msg_x = (w - msg_width) / 2.0;
                 draw_rectangle(msg_x - 12.0, h / 2.0 - 24.0, msg_width + 24.0, 36.0, Color::from_rgba(0, 0, 0, 200));
                 draw_text(&trade_message, msg_x, h / 2.0, 20.0, GREEN);
+            }
             }
         }
         

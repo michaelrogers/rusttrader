@@ -4,14 +4,14 @@ Canonical live status for active implementation.
 
 ## Now
 
-- **Focus:** UI architecture cleanup (reducing remaining UI branching in `src/main.rs`).
+- **Focus:** UI architecture cleanup (consolidating shared drawing utilities).
 - **Constraint:** maintain behavior parity during extraction.
 
 ## Next
 
-1. Minimize remaining UI branching and helper duplication in `src/main.rs`.
-2. Consolidate shared drawing utilities.
-3. Document resulting module boundaries.
+1. Consolidate shared drawing utilities across `src/main.rs` and `src/ui/game_screen.rs`.
+2. Evaluate optional extraction of remaining main-screen/ship-shop rendering.
+3. Keep `docs/DECISIONS.md` updated for any boundary changes.
 
 ## Blocked
 
@@ -23,6 +23,8 @@ Canonical live status for active implementation.
 - Extracted trading/shipyard/repair render functions into `src/ui/game_screen.rs`.
 - Extracted warp/chart rendering helpers and hit-tests into `src/ui/game_screen.rs`.
 - Extracted system-info and encounter presentation renderers into `src/ui/game_screen.rs`.
+- Reduced draw-stage branching in `src/main.rs` using `match` and restored explicit `SystemInfo` screen rendering.
+- Documented current UI module ownership boundaries in `docs/DECISIONS.md`.
 
 ## Drift Notes
 

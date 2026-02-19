@@ -30,8 +30,8 @@ Goal: Reduce UI concentration in `src/main.rs` by extracting rendering + screen-
 #### Sprint C
 
 - [x] Extract encounter/system presentation (`draw_encounter_screen`, `draw_system_info_screen`)
-- [ ] Minimize UI branching in `src/main.rs`
-- [ ] Document module boundaries in `docs/DECISIONS.md`
+- [x] Minimize UI branching in `src/main.rs`
+- [x] Document module boundaries in `docs/DECISIONS.md`
 
 ### P1: Save/Load Path Consistency
 
