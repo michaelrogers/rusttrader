@@ -24,8 +24,8 @@ Goal: Reduce UI concentration in `src/main.rs` by extracting rendering + screen-
 #### Sprint B
 
 - [x] Extract warp/chart rendering helpers (`draw_short_range_chart`, `draw_galactic_chart`, `draw_warp_screen`)
-- [ ] Consolidate shared drawing utilities
-- [ ] Reduce duplicate UI formatting logic
+- [x] Consolidate shared drawing utilities
+- [x] Reduce duplicate UI formatting logic
 
 #### Sprint C
 

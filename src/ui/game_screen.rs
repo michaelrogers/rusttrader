@@ -12,6 +12,11 @@ use crate::types::trade::TRADE_ITEMS;
 use crate::types::{GameState, TradeGood};
 use macroquad::prelude::*;
 
+pub fn draw_panel(x: f32, y: f32, w: f32, h: f32) {
+    draw_rectangle(x, y, w, h, Color::from_rgba(12, 18, 34, 230));
+    draw_rectangle_lines(x, y, w, h, 1.0, Color::from_rgba(80, 100, 140, 200));
+}
+
 fn draw_navigation_tabs(active_buy: bool, active_sell: bool, active_shipyard: bool, active_warp: bool, y: f32) {
     let tab_h = 28.0;
     let tab_y = y;
@@ -163,21 +168,7 @@ fn draw_short_range_chart(
     panel_w: f32,
     panel_h: f32,
 ) {
-    draw_rectangle(
-        panel_x,
-        panel_y,
-        panel_w,
-        panel_h,
-        Color::from_rgba(12, 18, 34, 230),
-    );
-    draw_rectangle_lines(
-        panel_x,
-        panel_y,
-        panel_w,
-        panel_h,
-        1.0,
-        Color::from_rgba(80, 100, 140, 200),
-    );
+    draw_panel(panel_x, panel_y, panel_w, panel_h);
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
     camera.viewport = Some((panel_x as i32, panel_y as i32, panel_w as i32, panel_h as i32));
@@ -346,21 +337,7 @@ pub fn draw_galactic_chart(
     let chart_y = 80.0;
     let chart_w = screen_width() - 40.0;
     let chart_h = screen_height() - 140.0;
-    draw_rectangle(
-        chart_x,
-        chart_y,
-        chart_w,
-        chart_h,
-        Color::from_rgba(12, 18, 34, 230),
-    );
-    draw_rectangle_lines(
-        chart_x,
-        chart_y,
-        chart_w,
-        chart_h,
-        1.0,
-        Color::from_rgba(80, 100, 140, 200),
-    );
+    draw_panel(chart_x, chart_y, chart_w, chart_h);
 
     let (origin, scale) = galactic_chart_transform(chart_x, chart_y, chart_w, chart_h, pan, zoom);
     let origin_x = origin.x;
@@ -724,7 +701,7 @@ pub fn draw_warp_screen(
     }
 }
 
-fn draw_text_with_limits(text: &str, x: f32, mut y: f32, font_size: f32, color: Color, max_width: f32) {
+pub fn draw_text_with_limits(text: &str, x: f32, mut y: f32, font_size: f32, color: Color, max_width: f32) {
     let words: Vec<&str> = text.split_whitespace().collect();
     let mut current_line = String::new();
     let line_height = font_size * 1.2;

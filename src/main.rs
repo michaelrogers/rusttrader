@@ -12,9 +12,9 @@ use macroquad::prelude::*;
 use types::{GameState, TradeGood};
 use assets::{GameAssets, draw_ship};
 use ui::{
-    draw_encounter_screen, draw_galactic_chart, draw_main_menu, draw_repair_screen,
-    draw_shipyard_screen, draw_system_info_screen, draw_trading_screen, draw_warp_screen,
-    galactic_chart_hit_test, short_range_chart_hit_test,
+    draw_encounter_screen, draw_galactic_chart, draw_main_menu, draw_panel, draw_repair_screen,
+    draw_shipyard_screen, draw_system_info_screen, draw_text_with_limits, draw_trading_screen,
+    draw_warp_screen, galactic_chart_hit_test, short_range_chart_hit_test,
 };
 use game::trading::{buy_cargo, sell_cargo, max_buyable, buy_fuel, get_fuel_cost, max_fuel_buyable};
 use game::pricing::{get_buy_price, determine_prices};
@@ -35,35 +35,6 @@ enum GameScreen {
     Repair,
     ShipShop,
     GalacticChart,
-}
-
-fn draw_text_with_limits(text: &str, x: f32, mut y: f32, font_size: f32, color: Color, max_width: f32) {
-    let words: Vec<&str> = text.split_whitespace().collect();
-    let mut current_line = String::new();
-    
-    for word in words {
-        let test_line = if current_line.is_empty() {
-            word.to_string()
-        } else {
-            format!("{} {}", current_line, word)
-        };
-        
-        let test_width = measure_text(&test_line, None, font_size as u16, 1.0).width;
-        
-        if test_width > max_width {
-            if !current_line.is_empty() {
-                draw_text(&current_line, x, y, font_size, color);
-                y += font_size + 5.0;
-            }
-            current_line = word.to_string();
-        } else {
-            current_line = test_line;
-        }
-    }
-    
-    if !current_line.is_empty() {
-        draw_text(&current_line, x, y, font_size, color);
-    }
 }
 
 fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str) {
@@ -388,8 +359,7 @@ async fn main() {
             let p3_x = p2_x + panel_w + panel_gap;
 
             for x in [p1_x, p2_x, p3_x] {
-                draw_rectangle(x, panel_top, panel_w, panel_h, Color::from_rgba(12, 18, 34, 230));
-                draw_rectangle_lines(x, panel_top, panel_w, panel_h, 1.0, Color::from_rgba(80, 100, 140, 200));
+                draw_panel(x, panel_top, panel_w, panel_h);
             }
 
             // System overview panel
