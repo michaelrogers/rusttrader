@@ -4,13 +4,13 @@ Canonical live status for active implementation.
 
 ## Now
 
-- **Focus:** UI architecture cleanup (extracting warp/chart rendering from `src/main.rs` into `src/ui/*`).
+- **Focus:** UI architecture cleanup (reducing remaining UI branching in `src/main.rs`).
 - **Constraint:** maintain behavior parity during extraction.
 
 ## Next
 
-1. Extract warp/chart rendering helpers.
-2. Extract encounter/system presentation renderers.
+1. Minimize remaining UI branching and helper duplication in `src/main.rs`.
+2. Consolidate shared drawing utilities.
 3. Document resulting module boundaries.
 
 ## Blocked
@@ -21,6 +21,8 @@ Canonical live status for active implementation.
 
 - Added canonical planning/coordination docs under `docs/`.
 - Extracted trading/shipyard/repair render functions into `src/ui/game_screen.rs`.
+- Extracted warp/chart rendering helpers and hit-tests into `src/ui/game_screen.rs`.
+- Extracted system-info and encounter presentation renderers into `src/ui/game_screen.rs`.
 
 ## Drift Notes
 

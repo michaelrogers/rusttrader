@@ -23,13 +23,13 @@ Goal: Reduce UI concentration in `src/main.rs` by extracting rendering + screen-
 
 #### Sprint B
 
-- [ ] Extract warp/chart rendering helpers (`draw_short_range_chart`, `draw_galactic_chart`, `draw_warp_screen`)
+- [x] Extract warp/chart rendering helpers (`draw_short_range_chart`, `draw_galactic_chart`, `draw_warp_screen`)
 - [ ] Consolidate shared drawing utilities
 - [ ] Reduce duplicate UI formatting logic
 
 #### Sprint C
 
-- [ ] Extract encounter/system presentation (`draw_encounter_screen`, `draw_system_info_screen`)
+- [x] Extract encounter/system presentation (`draw_encounter_screen`, `draw_system_info_screen`)
 - [ ] Minimize UI branching in `src/main.rs`
 - [ ] Document module boundaries in `docs/DECISIONS.md`
 
