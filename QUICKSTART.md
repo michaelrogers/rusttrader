@@ -124,7 +124,7 @@ Trade (buy goods) → Warp (new system) → Trade (sell goods) → Profit → Re
 |-----|--------|
 | `T` | Open trading screen |
 | `W` | Open warp screen |
-| `S` | Save game (planned) |
+| `S` | Save game |
 | `Q` | Quit to main menu |
 | `ESC` | Quit to main menu |
 
@@ -169,13 +169,16 @@ Once you're comfortable with trading:
 - **Maximize profits** - Find the best trade routes
 - **Track your progress** - Watch your days counter
 
-### Coming Soon (Check README.md)
-- ⏳ **Fuel stations** - Buy fuel at systems
-- ⏳ **Ship repairs** - Fix damage
-- ⏳ **Ship upgrades** - Buy better ships
-- ⏳ **Random encounters** - Pirates, police, traders
-- ⏳ **Combat system** - Fight or flee
-- ⏳ **Quests** - Special missions
+### Available Now
+- ✅ **Fuel purchase** - Buy fuel at systems (`F`)
+- ✅ **Ship repairs** - Fix ship hull (`R`)
+- ✅ **Ship upgrades/shop** - Buy better ships (`H` / `U`)
+- ✅ **Random encounters** - Traders, police, pirates while traveling
+
+### Planned Next
+- ⏳ **Combat depth** - Expand encounter outcomes and battle flow
+- ⏳ **Special events/quests** - Story-driven missions
+- ⏳ **Additional polish** - UI cleanup and module extraction
 
 ## ❓ Troubleshooting
 
@@ -202,12 +205,13 @@ cargo clean && cargo run
 - Make sure you have **enough fuel** for the trip
 
 ### Ran out of fuel
-Currently there's **no refueling system** - you'll need to start a new game. This is one of the next features to implement!
+Use `F` on the main game screen to purchase fuel when you have enough credits.
 
 ## 📚 More Information
 
 - **Full documentation**: [README.md](README.md)
-- **Roadmap**: [README.md#roadmap](README.md#roadmap)
+- **Roadmap**: [docs/ROADMAP.md](docs/ROADMAP.md)
+- **Current status**: [docs/STATUS.md](docs/STATUS.md)
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Original game**: https://github.com/videogamepreservation/spacetrader
 

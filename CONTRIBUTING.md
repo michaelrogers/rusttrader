@@ -230,7 +230,8 @@ By contributing, you agree that your contributions will be licensed under the GN
 ## Questions?
 
 - Check the [README](README.md) for project overview
-- Review [ROADMAP](README.md#roadmap) for planned features
+- Review [docs/ROADMAP.md](docs/ROADMAP.md) for planned features
+- Check [docs/STATUS.md](docs/STATUS.md) for current active work
 - Read [PORTING_NOTES.md](PORTING_NOTES.md) for porting details
 - Open an issue for questions or discussions
 

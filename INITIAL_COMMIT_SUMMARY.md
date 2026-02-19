@@ -80,7 +80,7 @@ From the comprehensive roadmap in README.md:
 
 ### 🚧 Planned Features
 
-See [README.md](README.md#roadmap) for detailed 6-phase roadmap including:
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the canonical roadmap and current implementation sequencing.
 
 - Phase 2: Encounters & Combat
 - Phase 3: Economy & Progression
@@ -183,7 +183,7 @@ cargo run
 
 ### For Contributors
 1. Read [CONTRIBUTING.md](CONTRIBUTING.md)
-2. Check [README roadmap](README.md#roadmap)
+2. Check [docs/ROADMAP.md](docs/ROADMAP.md)
 3. Pick a Phase 1 task
 4. Create feature branch
 5. Submit PR
@@ -210,7 +210,7 @@ This initial commit represents:
 
 Immediate priorities:
 1. **Test the release build**: `cargo build --release && ./target/release/space_trader`
-2. **Review the roadmap**: Check [README.md Phase 1](README.md#phase-1-core-enhancement-next-up)
+2. **Review the roadmap**: Check [docs/ROADMAP.md](docs/ROADMAP.md)
 3. **Pick first feature**: Fuel station is 1-2 hours and high-value
 4. **Set up remote**: `git remote add origin <url>` when ready
 5. **Push**: `git push -u origin main`
@@ -218,7 +218,7 @@ Immediate priorities:
 ## 📞 Questions?
 
 - Check [README.md](README.md) for full documentation
-- Review [ROADMAP](README.md#roadmap) for planned features
+- Review [docs/ROADMAP.md](docs/ROADMAP.md) for planned features
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 - See [PORTING_NOTES.md](PORTING_NOTES.md) for original C code notes
 

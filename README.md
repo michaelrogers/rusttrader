@@ -13,6 +13,14 @@ cd tools && python3 generate_placeholder_assets.py && cd ..
 cargo run
 ```
 
+## Documentation Index
+
+- Implementation roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
+- Live project status: [docs/STATUS.md](docs/STATUS.md)
+- Multi-agent handoff template: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
+- Validation guidance: [docs/TESTING.md](docs/TESTING.md)
+- Architecture/workflow decisions: [docs/DECISIONS.md](docs/DECISIONS.md)
+
 ## What’s Included
 
 - 120 procedural systems, dynamic pricing, warp travel, encounters
@@ -37,6 +45,7 @@ cargo run
 - src/game (trading, travel, encounters, upgrades, repairs, ships)
 - src/types (state + data types)
 - src/ui, src/assets, src/save, tools/, assets/
+- docs/ (canonical roadmap, status, handoff, testing, decisions)
 
 1. **Special Events** (8-10 hours)
    - 37 special events from original game
