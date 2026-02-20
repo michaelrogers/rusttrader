@@ -5,13 +5,13 @@ Canonical live status for active implementation.
 ## Now
 
 - **Focus:** Bug fixes and UI polish
-- **Current:** Fixed warp screen scaling regression - camera now properly scaled to panel bounds
+- **Current:** Fixed warp screen rendering issues - proper camera scaling and text bounds checking to prevent edge corruption
 
 ## Next
 
-1. Evaluate P1 (Save/Load Path Consistency) or P2 (Asset Naming + Doc Consistency).
-2. Optional: Extract remaining main-screen/ship-shop rendering.
-3. Keep `docs/DECISIONS.md` updated for any boundary changes.
+1. Test warp screen resizing and edge cases
+2. Evaluate P1 (Save/Load Path Consistency) or P2 (Asset Naming + Doc Consistency)
+3. Optional: Extract remaining main-screen/ship-shop rendering
 
 ## Blocked
 
@@ -27,7 +27,8 @@ Canonical live status for active implementation.
 - Documented current UI module ownership boundaries in `docs/DECISIONS.md`.
 - Consolidated shared drawing utilities: `draw_text_with_limits` and `draw_panel` now public in ui module.
 - Removed duplicate code and reduced UI formatting duplication across modules.
-- **Fixed warp screen scaling regression:** Changed camera rect from full screen to panel bounds, ensuring proper viewport scaling.
+- **Fixed warp screen scaling:** Changed camera rect from full screen to panel bounds for proper viewport scaling.
+- **Fixed warp screen text rendering:** Added strict bounds checking to prevent text corruption at panel edges.
 
 ## Drift Notes
 
