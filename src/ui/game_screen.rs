@@ -12,24 +12,104 @@ use crate::types::trade::TRADE_ITEMS;
 use crate::types::{GameState, TradeGood};
 use macroquad::prelude::*;
 
+// Base resolution for UI scaling - designed at 800x600, scales proportionally
+const BASE_WIDTH: f32 = 800.0;
+const BASE_HEIGHT: f32 = 600.0;
+
+/// Calculate UI scale factor based on current screen size
+/// Returns a multiplier where 1.0 = base resolution (800x600)
+pub fn ui_scale() -> f32 {
+    (screen_width() / BASE_WIDTH).min(screen_height() / BASE_HEIGHT)
+}
+
+/// UI theme with all computed dimensions for current screen size
+#[derive(Clone, Copy)]
+pub struct UiTheme {
+    pub scale: f32,
+    // Font sizes
+    pub font_small: f32,
+    pub font_medium: f32,
+    pub font_large: f32,
+    pub font_title: f32,
+    pub font_header: f32,
+    // Spacing
+    pub margin: f32,
+    pub padding: f32,
+    pub line_height: f32,
+    pub line_height_small: f32,
+    // Tab bar
+    pub tab_height: f32,
+    pub header_height: f32,
+    pub header_height_large: f32,
+    // System markers
+    pub system_marker_size: f32,
+    pub system_marker_size_small: f32,
+    pub hit_radius: f32,
+    // Buttons
+    pub button_width: f32,
+    pub button_height: f32,
+    pub row_height: f32,
+    pub row_height_large: f32,
+}
+
+impl UiTheme {
+    pub fn new() -> Self {
+        let scale = ui_scale();
+        UiTheme {
+            scale,
+            // Font sizes with minimum clamps for readability
+            font_small: (10.0 * scale).max(9.0),
+            font_medium: (14.0 * scale).max(11.0),
+            font_large: (18.0 * scale).max(14.0),
+            font_title: (24.0 * scale).max(18.0),
+            font_header: (28.0 * scale).max(20.0),
+            // Spacing
+            margin: (20.0 * scale).max(10.0),
+            padding: (10.0 * scale).max(6.0),
+            line_height: (24.0 * scale).max(18.0),
+            line_height_small: (20.0 * scale).max(16.0),
+            // Tab bar
+            tab_height: (28.0 * scale).max(22.0),
+            header_height: (45.0 * scale).max(35.0),
+            header_height_large: (50.0 * scale).max(40.0),
+            // System markers
+            system_marker_size: (14.0 * scale).clamp(8.0, 28.0),
+            system_marker_size_small: (10.0 * scale).clamp(6.0, 20.0),
+            hit_radius: (10.0 * scale).max(8.0),
+            // Buttons
+            button_width: (140.0 * scale).max(100.0),
+            button_height: (50.0 * scale).max(36.0),
+            row_height: (25.0 * scale).clamp(20.0, 40.0),
+            row_height_large: (60.0 * scale).clamp(40.0, 90.0),
+        }
+    }
+}
+
+/// Get current UI theme (computed fresh each frame)
+pub fn theme() -> UiTheme {
+    UiTheme::new()
+}
+
 pub fn draw_panel(x: f32, y: f32, w: f32, h: f32) {
     draw_rectangle(x, y, w, h, Color::from_rgba(12, 18, 34, 230));
     draw_rectangle_lines(x, y, w, h, 1.0, Color::from_rgba(80, 100, 140, 200));
 }
 
 fn draw_navigation_tabs(active_buy: bool, active_sell: bool, active_shipyard: bool, active_warp: bool, y: f32) {
-    let tab_h = 28.0;
+    let t = theme();
+    let tab_h = t.tab_height;
     let tab_y = y;
     draw_rectangle(0.0, tab_y, screen_width(), tab_h, Color::from_rgba(15, 20, 40, 255));
 
+    let scale = t.scale;
     let tabs = [
-        ("Buy", active_buy, 90.0),
-        ("Sell", active_sell, 90.0),
-        ("Ship Yard", active_shipyard, 130.0),
-        ("Warp", active_warp, 90.0),
+        ("Buy", active_buy, 90.0 * scale),
+        ("Sell", active_sell, 90.0 * scale),
+        ("Ship Yard", active_shipyard, 130.0 * scale),
+        ("Warp", active_warp, 90.0 * scale),
     ];
 
-    let mut x = 20.0;
+    let mut x = t.margin;
     for (label, active, width) in tabs {
         let bg = if active {
             Color::from_rgba(80, 120, 200, 255)
@@ -45,9 +125,9 @@ fn draw_navigation_tabs(active_buy: bool, active_sell: bool, active_shipyard: bo
             1.0,
             Color::from_rgba(130, 170, 220, 255),
         );
-        let text_w = measure_text(label, None, 14, 1.0).width;
-        draw_text(label, x + (width - text_w) / 2.0, tab_y + 20.0, 14.0, WHITE);
-        x += width + 10.0;
+        let text_w = measure_text(label, None, t.font_medium as u16, 1.0).width;
+        draw_text(label, x + (width - text_w) / 2.0, tab_y + tab_h * 0.7, t.font_medium, WHITE);
+        x += width + t.padding;
     }
 }
 
@@ -179,6 +259,7 @@ fn draw_short_range_chart(
     panel_w: f32,
     panel_h: f32,
 ) {
+    let t = theme();
     draw_panel(panel_x, panel_y, panel_w, panel_h);
 
     // Use full-screen camera with viewport for coordinate consistency
@@ -256,9 +337,10 @@ fn draw_short_range_chart(
             Color::from_rgba(110, 110, 130, 200)
         };
 
-        draw_circle(px, py, if is_current { 5.0 } else { 4.0 }, color);
+        let marker_r = if is_current { t.system_marker_size * 0.4 } else { t.system_marker_size * 0.3 };
+        draw_circle(px, py, marker_r, color);
         if is_selected {
-            draw_circle_lines(px, py, 7.0, 2.0, Color::from_rgba(255, 230, 150, 220));
+            draw_circle_lines(px, py, marker_r + 2.0 * t.scale, 2.0, Color::from_rgba(255, 230, 150, 220));
         }
 
         let label_color = if dist <= current_range {
@@ -333,19 +415,21 @@ fn draw_short_range_chart(
     set_default_camera();
 
     // Render system labels in screen space to avoid clipping and maintain legibility
+    let label_size = t.font_small;
+    let marker_offset = t.system_marker_size * 0.6;
     for (name, px, py, color) in labels {
-        let name_w = measure_text(&name, None, 12, 1.0).width;
+        let name_w = measure_text(&name, None, label_size as u16, 1.0).width;
         let label_x = px - name_w / 2.0;
-        let label_y = py - 8.0;
+        let label_y = py - marker_offset;
         
         // Check bounds in screen space
-        let text_in_bounds = label_x >= panel_x + 10.0
-            && label_x + name_w <= panel_x + panel_w - 10.0
-            && label_y >= panel_y + 10.0
-            && label_y + 12.0 <= panel_y + panel_h - 10.0;
+        let text_in_bounds = label_x >= panel_x + t.padding
+            && label_x + name_w <= panel_x + panel_w - t.padding
+            && label_y >= panel_y + t.padding
+            && label_y + label_size <= panel_y + panel_h - t.padding;
             
         if text_in_bounds {
-            draw_text(&name, label_x, label_y, 12.0, color);
+            draw_text(&name, label_x, label_y, label_size, color);
         }
     }
 
@@ -353,33 +437,35 @@ fn draw_short_range_chart(
     if let Some((target_name, dist)) = waypoint_info {
         draw_text(
             &format!("{:.1} parsecs to {}", dist, target_name),
-            panel_x + 12.0,
-            panel_y + panel_h - 36.0,
-            12.0,
+            panel_x + t.padding,
+            panel_y + panel_h - t.line_height_small * 1.8,
+            t.font_small,
             WHITE,
         );
     }
 
-    draw_text("Short Range Chart", panel_x + 12.0, panel_y + 20.0, 14.0, SKYBLUE);
+    draw_text("Short Range Chart", panel_x + t.padding, panel_y + t.line_height_small, t.font_medium, SKYBLUE);
     draw_text(
         "Range:",
-        panel_x + 12.0,
-        panel_y + panel_h - 18.0,
-        12.0,
+        panel_x + t.padding,
+        panel_y + panel_h - t.padding,
+        t.font_small,
         LIGHTGRAY,
     );
+    let range_label_w = measure_text("Range: ", None, t.font_small as u16, 1.0).width;
     draw_text(
         &format!("{} parsecs", max_range as i32),
-        panel_x + 70.0,
-        panel_y + panel_h - 18.0,
-        12.0,
+        panel_x + t.padding + range_label_w,
+        panel_y + panel_h - t.padding,
+        t.font_small,
         WHITE,
     );
+    let reachable_w = measure_text("● Reachable", None, t.font_small as u16, 1.0).width;
     draw_text(
         "● Reachable",
-        panel_x + panel_w - 120.0,
-        panel_y + panel_h - 18.0,
-        12.0,
+        panel_x + panel_w - reachable_w - t.padding,
+        panel_y + panel_h - t.padding,
+        t.font_small,
         Color::from_rgba(80, 200, 90, 255),
     );
 }
@@ -393,16 +479,17 @@ pub fn draw_galactic_chart(
     search_query: &str,
     search_active: bool,
 ) {
+    let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
 
-    draw_rectangle(0.0, 0.0, screen_width(), 45.0, Color::from_rgba(20, 30, 60, 255));
-    draw_text("Galactic Chart", 20.0, 28.0, 24.0, WHITE);
-    draw_navigation_tabs(false, false, false, true, 45.0);
+    draw_rectangle(0.0, 0.0, screen_width(), t.header_height, Color::from_rgba(20, 30, 60, 255));
+    draw_text("Galactic Chart", t.margin, t.header_height * 0.62, t.font_title, WHITE);
+    draw_navigation_tabs(false, false, false, true, t.header_height);
 
-    let chart_x = 20.0;
-    let chart_y = 80.0;
-    let chart_w = screen_width() - 40.0;
-    let chart_h = screen_height() - 140.0;
+    let chart_x = t.margin;
+    let chart_y = t.header_height + t.tab_height + t.padding;
+    let chart_w = screen_width() - t.margin * 2.0;
+    let chart_h = screen_height() - chart_y - t.header_height * 2.0;
     draw_panel(chart_x, chart_y, chart_w, chart_h);
 
     // Set up viewport for chart rendering
@@ -434,14 +521,16 @@ pub fn draw_galactic_chart(
 
     // Collect labels to render after switching camera
     let mut labels: Vec<(String, f32, f32, Color)> = Vec::new();
+    let marker_size = t.system_marker_size_small;
+    let half_marker = marker_size / 2.0;
 
     for (idx, system) in game_state.solar_systems.iter().enumerate() {
         let px = origin_x + system.x as f32 * scale;
         let py = origin_y + system.y as f32 * scale;
 
         // Only draw if visible in panel
-        if px < chart_x - 6.0 || px > chart_x + chart_w + 6.0
-            || py < chart_y - 6.0 || py > chart_y + chart_h + 6.0
+        if px < chart_x - half_marker || px > chart_x + chart_w + half_marker
+            || py < chart_y - half_marker || py > chart_y + chart_h + half_marker
         {
             continue;
         }
@@ -455,15 +544,15 @@ pub fn draw_galactic_chart(
             color = Color::from_rgba(255, 230, 150, 255);
         }
 
-        draw_rectangle(px - 3.0, py - 3.0, 6.0, 6.0, color);
+        draw_rectangle(px - half_marker, py - half_marker, marker_size, marker_size, color);
         labels.push((system.name.clone(), px, py, color));
     }
 
     // Switch back to default camera for UI text rendering (screen space, full resolution)
     set_default_camera();
 
-    // Zoom-aware font sizing for labels
-    let label_font_size = (10.0 * zoom).clamp(8.0, 14.0);
+    // Zoom-aware font sizing for labels with scaling
+    let label_font_size = (t.font_small * zoom).clamp(t.font_small * 0.8, t.font_medium);
     
     // Only show most labels when zoomed in (reduces clutter)
     let show_all_labels = zoom >= 1.2;
@@ -478,14 +567,14 @@ pub fn draw_galactic_chart(
         }
         
         let text_w = measure_text(&name, None, label_font_size as u16, 1.0).width;
-        let text_x = px + 6.0;
-        let text_y = py - 6.0;
+        let text_x = px + half_marker;
+        let text_y = py - half_marker;
         
         // Check bounds in screen space
-        let text_in_bounds = text_x >= chart_x + 10.0
-            && text_x + text_w <= chart_x + chart_w - 10.0
-            && text_y >= chart_y + 10.0
-            && text_y + label_font_size <= chart_y + chart_h - 10.0;
+        let text_in_bounds = text_x >= chart_x + t.padding
+            && text_x + text_w <= chart_x + chart_w - t.padding
+            && text_y >= chart_y + t.padding
+            && text_y + label_font_size <= chart_y + chart_h - t.padding;
             
         if text_in_bounds {
             draw_text(&name, text_x, text_y, label_font_size, WHITE);
@@ -493,12 +582,12 @@ pub fn draw_galactic_chart(
     }
 
     // Render current and waypoint labels (always visible, important systems)
-    let current_text_x = current_px + 6.0;
-    let current_text_y = current_py - 6.0;
-    if current_text_x >= chart_x + 10.0
-        && current_text_x + measure_text(&current.name, None, label_font_size as u16, 1.0).width <= chart_x + chart_w - 10.0
-        && current_text_y >= chart_y + 10.0
-        && current_text_y + label_font_size <= chart_y + chart_h - 10.0
+    let current_text_x = current_px + half_marker;
+    let current_text_y = current_py - half_marker;
+    if current_text_x >= chart_x + t.padding
+        && current_text_x + measure_text(&current.name, None, label_font_size as u16, 1.0).width <= chart_x + chart_w - t.padding
+        && current_text_y >= chart_y + t.padding
+        && current_text_y + label_font_size <= chart_y + chart_h - t.padding
     {
         draw_text(&current.name, current_text_x, current_text_y, label_font_size, Color::from_rgba(100, 180, 255, 255));
     }
@@ -507,13 +596,13 @@ pub fn draw_galactic_chart(
         let target = &game_state.solar_systems[waypoint_id];
         let tx = origin_x + target.x as f32 * scale;
         let ty = origin_y + target.y as f32 * scale;
-        let waypoint_text_x = tx + 6.0;
-        let waypoint_text_y = ty - 6.0;
+        let waypoint_text_x = tx + half_marker;
+        let waypoint_text_y = ty - half_marker;
         
-        if waypoint_text_x >= chart_x + 10.0
-            && waypoint_text_x + measure_text(&target.name, None, label_font_size as u16, 1.0).width <= chart_x + chart_w - 10.0
-            && waypoint_text_y >= chart_y + 10.0
-            && waypoint_text_y + label_font_size <= chart_y + chart_h - 10.0
+        if waypoint_text_x >= chart_x + t.padding
+            && waypoint_text_x + measure_text(&target.name, None, label_font_size as u16, 1.0).width <= chart_x + chart_w - t.padding
+            && waypoint_text_y >= chart_y + t.padding
+            && waypoint_text_y + label_font_size <= chart_y + chart_h - t.padding
         {
             draw_text(
                 &target.name,
@@ -572,42 +661,45 @@ pub fn draw_galactic_chart(
     let size_names = ["Tiny", "Small", "Medium", "Large", "Huge"];
     let size_name = size_names.get(info_system.size as usize).unwrap_or(&"Unknown");
 
-    draw_text(&format!("{}", info_system.name), 20.0, info_y, 18.0, WHITE);
-    draw_text(&format!("{:.1} parsecs", dist), 220.0, info_y, 18.0, WHITE);
+    draw_text(&format!("{}", info_system.name), t.margin, info_y, t.font_large, WHITE);
+    let name_w = measure_text(&info_system.name, None, t.font_large as u16, 1.0).width;
+    draw_text(&format!("{:.1} parsecs", dist), t.margin + name_w + t.margin, info_y, t.font_large, WHITE);
     draw_text(
         &format!("{} {} {}", size_name, tech_name, politics_name),
-        20.0,
-        info_y + 22.0,
-        14.0,
+        t.margin,
+        info_y + t.line_height_small,
+        t.font_medium,
         LIGHTGRAY,
     );
 
-    let footer_y = screen_height() - 40.0;
+    let footer_y = screen_height() - t.margin * 2.0;
     
     // Zoom indicator in top-right of chart
     let zoom_text = format!("Zoom: {:.1}x", zoom);
-    let zoom_text_w = measure_text(&zoom_text, None, 12, 1.0).width;
-    draw_text(&zoom_text, chart_x + chart_w - zoom_text_w - 10.0, chart_y + 18.0, 12.0, LIGHTGRAY);
+    let zoom_text_w = measure_text(&zoom_text, None, t.font_small as u16, 1.0).width;
+    draw_text(&zoom_text, chart_x + chart_w - zoom_text_w - t.padding, chart_y + t.line_height_small, t.font_small, LIGHTGRAY);
     
     // Pan indicator if not centered
     if pan.x.abs() > 0.5 || pan.y.abs() > 0.5 {
-        draw_text("[R to reset view]", chart_x + chart_w - zoom_text_w - 120.0, chart_y + 18.0, 12.0, 
+        let reset_text = "[R to reset view]";
+        let reset_w = measure_text(reset_text, None, t.font_small as u16, 1.0).width;
+        draw_text(reset_text, chart_x + chart_w - zoom_text_w - reset_w - t.margin, chart_y + t.line_height_small, t.font_small, 
             Color::from_rgba(150, 150, 170, 200));
     }
     
     draw_text(
         "Pan: Arrows/WASD/Drag | Zoom: +/-/Wheel | R: Reset | Click: Select | F: Find | Esc: Back",
-        20.0,
+        t.margin,
         footer_y,
-        14.0,
+        t.font_medium,
         LIGHTGRAY,
     );
     if search_active {
         draw_text(
             &format!("Find: {}", search_query),
-            20.0,
-            footer_y - 22.0,
-            16.0,
+            t.margin,
+            footer_y - t.line_height,
+            t.font_medium + 2.0,
             WHITE,
         );
 
@@ -629,14 +721,16 @@ pub fn draw_galactic_chart(
 
             matches.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.1.cmp(&b.1)));
 
-            draw_text("Suggestions:", 20.0, footer_y - 44.0, 14.0, LIGHTGRAY);
+            draw_text("Suggestions:", t.margin, footer_y - t.line_height * 2.0, t.font_medium, LIGHTGRAY);
+            let mut suggestion_x = t.margin + measure_text("Suggestions: ", None, t.font_medium as u16, 1.0).width;
             for (index, (_, name, _)) in matches.into_iter().take(5).enumerate() {
                 let color = if index == 0 {
                     Color::from_rgba(255, 210, 140, 255)
                 } else {
                     LIGHTGRAY
                 };
-                draw_text(name, 120.0 + (index as f32 * 110.0), footer_y - 44.0, 14.0, color);
+                draw_text(name, suggestion_x, footer_y - t.line_height * 2.0, t.font_medium, color);
+                suggestion_x += measure_text(name, None, t.font_medium as u16, 1.0).width + t.margin;
             }
         }
     }
@@ -651,11 +745,12 @@ pub fn draw_warp_screen(
     short_pan: Vec2,
     short_zoom: f32,
 ) {
+    let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
 
-    draw_rectangle(0.0, 0.0, screen_width(), 45.0, Color::from_rgba(20, 30, 60, 255));
-    draw_text("Warp - Select Destination", 20.0, 28.0, 24.0, GOLD);
-    draw_navigation_tabs(false, false, false, true, 45.0);
+    draw_rectangle(0.0, 0.0, screen_width(), t.header_height, Color::from_rgba(20, 30, 60, 255));
+    draw_text("Warp - Select Destination", t.margin, t.header_height * 0.62, t.font_title, GOLD);
+    draw_navigation_tabs(false, false, false, true, t.header_height);
 
     draw_text(
         &format!(
@@ -663,16 +758,16 @@ pub fn draw_warp_screen(
             game_state.current_system_name(),
             game_state.ship.fuel
         ),
-        20.0,
-        85.0,
-        18.0,
+        t.margin,
+        t.header_height + t.tab_height + t.line_height,
+        t.font_large,
         WHITE,
     );
 
     let systems = systems_in_range(game_state);
 
-    let chart_x = 20.0;
-    let chart_y = 120.0;
+    let chart_x = t.margin;
+    let chart_y = t.header_height + t.tab_height + t.line_height * 2.0;
     let chart_w = screen_width() * 0.45;
     let chart_h = screen_height() * 0.55;
     draw_short_range_chart(
@@ -690,37 +785,42 @@ pub fn draw_warp_screen(
     if systems.is_empty() {
         draw_text(
             "No systems in fuel range!",
-            chart_x + chart_w + 30.0,
-            chart_y + 40.0,
-            18.0,
+            chart_x + chart_w + t.margin,
+            chart_y + t.line_height * 2.0,
+            t.font_large,
             RED,
         );
         draw_text(
             "Return to station to refuel",
-            chart_x + chart_w + 30.0,
-            chart_y + 65.0,
-            14.0,
+            chart_x + chart_w + t.margin,
+            chart_y + t.line_height * 3.5,
+            t.font_medium,
             YELLOW,
         );
     } else {
-        let list_x = chart_x + chart_w + 20.0;
+        let list_x = chart_x + chart_w + t.margin;
+        let list_w = screen_width() - list_x - t.margin;
+        let col_system = list_x;
+        let col_dist = list_x + list_w * 0.45;
+        let col_fuel = list_x + list_w * 0.7;
+        let col_visit = list_x + list_w * 0.85;
         let y_start = chart_y;
-        draw_text("System", list_x, y_start, 16.0, LIGHTGRAY);
-        draw_text("Distance", list_x + 160.0, y_start, 16.0, LIGHTGRAY);
-        draw_text("Fuel", list_x + 260.0, y_start, 16.0, LIGHTGRAY);
+        draw_text("System", col_system, y_start, t.font_medium + 2.0, LIGHTGRAY);
+        draw_text("Distance", col_dist, y_start, t.font_medium + 2.0, LIGHTGRAY);
+        draw_text("Fuel", col_fuel, y_start, t.font_medium + 2.0, LIGHTGRAY);
 
         for (index, &(system_id, distance)) in systems.iter().enumerate() {
-            let y = y_start + 30.0 + (index as f32 * 24.0);
+            let y = y_start + t.line_height * 1.5 + (index as f32 * t.line_height);
             let system = &game_state.solar_systems[system_id];
             let fuel_cost = distance.ceil() as i32;
 
             let color = if index == selected { YELLOW } else { WHITE };
             if index == selected {
                 draw_rectangle(
-                    list_x - 5.0,
-                    y - 16.0,
-                    screen_width() - list_x - 20.0,
-                    22.0,
+                    list_x - t.padding * 0.5,
+                    y - t.line_height * 0.65,
+                    list_w,
+                    t.line_height * 0.9,
                     Color::from_rgba(50, 50, 100, 128),
                 );
             }
@@ -731,12 +831,12 @@ pub fn draw_warp_screen(
                 RED
             };
 
-            draw_text(&system.name, list_x, y, 14.0, color);
-            draw_text(&format!("{:.1} ly", distance), list_x + 160.0, y, 14.0, color);
-            draw_text(&format!("{}", fuel_cost), list_x + 260.0, y, 14.0, fuel_color);
+            draw_text(&system.name, col_system, y, t.font_medium, color);
+            draw_text(&format!("{:.1} ly", distance), col_dist, y, t.font_medium, color);
+            draw_text(&format!("{}", fuel_cost), col_fuel, y, t.font_medium, fuel_color);
 
             if system.visited {
-                draw_text("✓", list_x + 300.0, y, 14.0, SKYBLUE);
+                draw_text("✓", col_visit, y, t.font_medium, SKYBLUE);
             }
         }
 
