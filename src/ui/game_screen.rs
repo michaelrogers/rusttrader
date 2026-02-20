@@ -394,6 +394,11 @@ pub fn draw_galactic_chart(
     let chart_h = screen_height() - 140.0;
     draw_panel(chart_x, chart_y, chart_w, chart_h);
 
+    // Set up viewport for chart rendering
+    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
+    camera.viewport = Some((chart_x as i32, chart_y as i32, chart_w as i32, chart_h as i32));
+    set_camera(&camera);
+
     let (origin, scale) = galactic_chart_transform(chart_x, chart_y, chart_w, chart_h, pan, zoom);
     let origin_x = origin.x;
     let origin_y = origin.y;
@@ -402,17 +407,33 @@ pub fn draw_galactic_chart(
     let range_r = game_state.ship.max_fuel() as f32 * scale;
     let current_px = origin_x + current.x as f32 * scale;
     let current_py = origin_y + current.y as f32 * scale;
-    draw_circle_lines(
-        current_px,
-        current_py,
-        range_r,
-        2.0,
-        Color::from_rgba(200, 200, 220, 160),
-    );
+    
+    // Only draw range circle if it's at least partially visible
+    if current_px + range_r >= chart_x && current_px - range_r <= chart_x + chart_w
+        && current_py + range_r >= chart_y && current_py - range_r <= chart_y + chart_h
+    {
+        draw_circle_lines(
+            current_px,
+            current_py,
+            range_r,
+            2.0,
+            Color::from_rgba(200, 200, 220, 160),
+        );
+    }
+
+    // Collect labels to render after switching camera
+    let mut labels: Vec<(String, f32, f32, Color)> = Vec::new();
 
     for (idx, system) in game_state.solar_systems.iter().enumerate() {
         let px = origin_x + system.x as f32 * scale;
         let py = origin_y + system.y as f32 * scale;
+
+        // Only draw if visible in panel
+        if px < chart_x - 6.0 || px > chart_x + chart_w + 6.0
+            || py < chart_y - 6.0 || py > chart_y + chart_h + 6.0
+        {
+            continue;
+        }
 
         let mut color = Color::from_rgba(80, 200, 90, 255);
         if system.name == current.name {
@@ -424,20 +445,60 @@ pub fn draw_galactic_chart(
         }
 
         draw_rectangle(px - 3.0, py - 3.0, 6.0, 6.0, color);
+        labels.push((system.name.clone(), px, py, color));
     }
 
-    draw_text(&current.name, current_px + 6.0, current_py - 6.0, 12.0, WHITE);
+    // Switch back to default camera for UI text rendering (screen space, full resolution)
+    set_default_camera();
+
+    // Render system labels in screen space to avoid clipping
+    for (name, px, py, _color) in labels {
+        let text_w = measure_text(&name, None, 12, 1.0).width;
+        let text_x = px + 6.0;
+        let text_y = py - 6.0;
+        
+        // Check bounds in screen space
+        let text_in_bounds = text_x >= chart_x + 10.0
+            && text_x + text_w <= chart_x + chart_w - 10.0
+            && text_y >= chart_y + 10.0
+            && text_y + 12.0 <= chart_y + chart_h - 10.0;
+            
+        if text_in_bounds {
+            draw_text(&name, text_x, text_y, 12.0, WHITE);
+        }
+    }
+
+    // Render current and waypoint labels
+    let current_text_x = current_px + 6.0;
+    let current_text_y = current_py - 6.0;
+    if current_text_x >= chart_x + 10.0
+        && current_text_x + measure_text(&current.name, None, 12, 1.0).width <= chart_x + chart_w - 10.0
+        && current_text_y >= chart_y + 10.0
+        && current_text_y + 12.0 <= chart_y + chart_h - 10.0
+    {
+        draw_text(&current.name, current_text_x, current_text_y, 12.0, WHITE);
+    }
+
     if let Some(waypoint_id) = waypoint_system {
         let target = &game_state.solar_systems[waypoint_id];
         let tx = origin_x + target.x as f32 * scale;
         let ty = origin_y + target.y as f32 * scale;
-        draw_text(
-            &target.name,
-            tx + 6.0,
-            ty - 6.0,
-            12.0,
-            Color::from_rgba(255, 210, 140, 255),
-        );
+        let waypoint_text_x = tx + 6.0;
+        let waypoint_text_y = ty - 6.0;
+        
+        if waypoint_text_x >= chart_x + 10.0
+            && waypoint_text_x + measure_text(&target.name, None, 12, 1.0).width <= chart_x + chart_w - 10.0
+            && waypoint_text_y >= chart_y + 10.0
+            && waypoint_text_y + 12.0 <= chart_y + chart_h - 10.0
+        {
+            draw_text(
+                &target.name,
+                waypoint_text_x,
+                waypoint_text_y,
+                12.0,
+                Color::from_rgba(255, 210, 140, 255),
+            );
+        }
     }
 
     let info_y = screen_height() - 75.0;
