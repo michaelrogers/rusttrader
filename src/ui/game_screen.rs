@@ -57,30 +57,30 @@ impl UiTheme {
         let scale = ui_scale();
         UiTheme {
             scale,
-            // Font sizes with minimum clamps for readability
-            font_small: (10.0 * scale).max(9.0),
-            font_medium: (14.0 * scale).max(11.0),
-            font_large: (18.0 * scale).max(14.0),
-            font_title: (24.0 * scale).max(18.0),
-            font_header: (28.0 * scale).max(20.0),
-            // Spacing
-            margin: (20.0 * scale).max(10.0),
-            padding: (10.0 * scale).max(6.0),
-            line_height: (24.0 * scale).max(18.0),
-            line_height_small: (20.0 * scale).max(16.0),
+            // Font sizes with higher minimum clamps for legibility at small resolutions
+            font_small: (10.0 * scale).max(11.0),
+            font_medium: (14.0 * scale).max(13.0),
+            font_large: (18.0 * scale).max(16.0),
+            font_title: (24.0 * scale).max(20.0),
+            font_header: (28.0 * scale).max(22.0),
+            // Spacing - tighter minimums to allow UI to adapt at small sizes
+            margin: (20.0 * scale).max(8.0),
+            padding: (10.0 * scale).max(5.0),
+            line_height: (24.0 * scale).max(16.0),
+            line_height_small: (20.0 * scale).max(14.0),
             // Tab bar
-            tab_height: (28.0 * scale).max(22.0),
-            header_height: (45.0 * scale).max(35.0),
-            header_height_large: (50.0 * scale).max(40.0),
+            tab_height: (28.0 * scale).max(20.0),
+            header_height: (45.0 * scale).max(32.0),
+            header_height_large: (50.0 * scale).max(36.0),
             // System markers
             system_marker_size: (14.0 * scale).clamp(8.0, 28.0),
             system_marker_size_small: (10.0 * scale).clamp(6.0, 20.0),
             hit_radius: (10.0 * scale).max(8.0),
             // Buttons
-            button_width: (140.0 * scale).max(100.0),
-            button_height: (50.0 * scale).max(36.0),
-            row_height: (25.0 * scale).clamp(20.0, 40.0),
-            row_height_large: (60.0 * scale).clamp(40.0, 90.0),
+            button_width: (140.0 * scale).max(90.0),
+            button_height: (50.0 * scale).max(32.0),
+            row_height: (25.0 * scale).clamp(18.0, 40.0),
+            row_height_large: (60.0 * scale).clamp(36.0, 90.0),
         }
     }
 }
