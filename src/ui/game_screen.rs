@@ -170,7 +170,8 @@ fn draw_short_range_chart(
 ) {
     draw_panel(panel_x, panel_y, panel_w, panel_h);
 
-    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
+    // Use panel-relative camera so map fills the entire panel
+    let mut camera = Camera2D::from_display_rect(Rect::new(panel_x, panel_y, panel_w, panel_h));
     camera.viewport = Some((panel_x as i32, panel_y as i32, panel_w as i32, panel_h as i32));
     set_camera(&camera);
 
@@ -198,6 +199,9 @@ fn draw_short_range_chart(
         2.0,
         Color::from_rgba(120, 190, 120, 200),
     );
+
+    // Collect labels to render after switching camera
+    let mut labels: Vec<(String, f32, f32, Color)> = Vec::new();
 
     for (idx, system) in game_state.solar_systems.iter().enumerate() {
         let dx = (system.x - current.x) as f32;
@@ -232,25 +236,12 @@ fn draw_short_range_chart(
             draw_circle_lines(px, py, 7.0, 2.0, Color::from_rgba(255, 230, 150, 220));
         }
 
-        let name = &system.name;
-        let name_w = measure_text(name, None, 12, 1.0).width;
-        let label_x = px - name_w / 2.0;
-        let label_y = py - 8.0;
-        
-        // Only render text if it stays fully within bounds (with 10px margin for safety)
-        let text_in_bounds = label_x >= panel_x + 10.0
-            && label_x + name_w <= panel_x + panel_w - 10.0
-            && label_y >= panel_y + 10.0
-            && label_y + 12.0 <= panel_y + panel_h - 10.0;
-            
-        if text_in_bounds {
-            let label_color = if dist <= current_range {
-                WHITE
-            } else {
-                Color::from_rgba(190, 190, 200, 200)
-            };
-            draw_text(name, label_x, label_y, 12.0, label_color);
-        }
+        let label_color = if dist <= current_range {
+            WHITE
+        } else {
+            Color::from_rgba(190, 190, 200, 200)
+        };
+        labels.push((system.name.clone(), px, py, label_color));
     }
 
     draw_line(
@@ -270,6 +261,7 @@ fn draw_short_range_chart(
         Color::from_rgba(70, 140, 255, 255),
     );
 
+    let mut waypoint_info: Option<(String, f32)> = None;
     if let Some(waypoint_id) = waypoint_system {
         let target = &game_state.solar_systems[waypoint_id];
         let dx = (target.x - current.x) as f32;
@@ -293,14 +285,39 @@ fn draw_short_range_chart(
                 5.0,
                 Color::from_rgba(255, 180, 80, 255),
             );
-            draw_text(
-                &format!("{:.1} parsecs to {}", dist, target.name),
-                panel_x + 12.0,
-                panel_y + panel_h - 36.0,
-                12.0,
-                WHITE,
-            );
+            waypoint_info = Some((target.name.clone(), dist));
         }
+    }
+
+    // Switch back to default camera for UI text rendering (screen space)
+    set_default_camera();
+
+    // Render system labels in screen space to avoid clipping
+    for (name, px, py, color) in labels {
+        let name_w = measure_text(&name, None, 12, 1.0).width;
+        let label_x = px - name_w / 2.0;
+        let label_y = py - 8.0;
+        
+        // Check bounds in screen space
+        let text_in_bounds = label_x >= panel_x + 10.0
+            && label_x + name_w <= panel_x + panel_w - 10.0
+            && label_y >= panel_y + 10.0
+            && label_y + 12.0 <= panel_y + panel_h - 10.0;
+            
+        if text_in_bounds {
+            draw_text(&name, label_x, label_y, 12.0, color);
+        }
+    }
+
+    // Render waypoint info
+    if let Some((target_name, dist)) = waypoint_info {
+        draw_text(
+            &format!("{:.1} parsecs to {}", dist, target_name),
+            panel_x + 12.0,
+            panel_y + panel_h - 36.0,
+            12.0,
+            WHITE,
+        );
     }
 
     draw_text("Short Range Chart", panel_x + 12.0, panel_y + 20.0, 14.0, SKYBLUE);
@@ -325,8 +342,6 @@ fn draw_short_range_chart(
         12.0,
         Color::from_rgba(80, 200, 90, 255),
     );
-
-    set_default_camera();
 }
 
 pub fn draw_galactic_chart(
