@@ -38,12 +38,13 @@ enum GameScreen {
 }
 
 fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str) {
+    let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
     
     // Header
-    draw_rectangle(0.0, 0.0, screen_width(), 50.0, Color::from_rgba(0, 160, 80, 255));
-    draw_text("Ship Shop", 20.0, 25.0, 28.0, WHITE);
-    draw_text(&format!("Credits: {}", game_state.credits), screen_width() - 200.0, 25.0, 18.0, GOLD);
+    draw_rectangle(0.0, 0.0, screen_width(), t.header_height, Color::from_rgba(0, 160, 80, 255));
+    draw_text("Ship Shop", t.margin, t.header_height * 0.6, t.font_title, WHITE);
+    draw_text(&format!("Credits: {}", game_state.credits), screen_width() - t.margin * 10.0, t.header_height * 0.6, t.font_medium, GOLD);
     
     let _current_ship = get_current_ship_info(game_state);
     let purchasable = get_purchasable_ships(game_state.solar_systems[game_state.current_system_id].tech_level as i32);
@@ -51,31 +52,33 @@ fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str)
     if purchasable.is_empty() {
         draw_text(
             "No ships available at this tech level",
-            screen_width() / 2.0 - 180.0,
+            screen_width() / 2.0 - 180.0 * t.scale,
             screen_height() / 2.0,
-            20.0,
+            t.font_large,
             LIGHTGRAY,
         );
     } else {
         // Column headers
-        let y_start = 80.0;
-        let name_col = 40.0;
-        let desc_col = 150.0;
-        let stats_col = 450.0;
-        let cost_col = screen_width() - 180.0;
+        let y_start = t.header_height + t.margin;
+        let list_w = screen_width() - t.margin * 2.0;
+        let name_col = t.margin * 2.0;
+        let desc_col = t.margin + list_w * 0.12;
+        let stats_col = t.margin + list_w * 0.45;
+        let cost_col = t.margin + list_w * 0.82;
         
-        draw_text("Ship", name_col, y_start, 16.0, LIGHTGRAY);
-        draw_text("Description", desc_col, y_start, 12.0, LIGHTGRAY);
-        draw_text("Stats", stats_col, y_start, 12.0, LIGHTGRAY);
-        draw_text("Cost", cost_col, y_start, 16.0, LIGHTGRAY);
+        draw_text("Ship", name_col, y_start, t.font_medium, LIGHTGRAY);
+        draw_text("Description", desc_col, y_start, t.font_small, LIGHTGRAY);
+        draw_text("Stats", stats_col, y_start, t.font_small, LIGHTGRAY);
+        draw_text("Cost", cost_col, y_start, t.font_medium, LIGHTGRAY);
         
         // Draw ships list
+        let row_h = t.row_height * 2.5;
         for (i, ship) in purchasable.iter().enumerate() {
-            let y = y_start + 40.0 + (i as f32 * 70.0);
+            let y = y_start + t.line_height * 1.5 + (i as f32 * row_h);
             
             // Highlight selected
             if i == selected {
-                draw_rectangle(15.0, y - 20.0, screen_width() - 30.0, 65.0, Color::from_rgba(50, 100, 50, 128));
+                draw_rectangle(t.padding, y - t.padding * 2.0, screen_width() - t.padding * 2.0, row_h - t.padding, Color::from_rgba(50, 100, 50, 128));
             }
             
             // Current ship indicator
@@ -88,44 +91,44 @@ fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str)
                 ship.name.to_string()
             };
             
-            draw_text(&ship_label, name_col, y, 16.0, color);
-            draw_text_with_limits(ship.description, desc_col, y, 11.0, LIGHTGRAY, 280.0);
+            draw_text(&ship_label, name_col, y, t.font_medium, color);
+            draw_text_with_limits(ship.description, desc_col, y, t.font_small, LIGHTGRAY, list_w * 0.30);
             
             let stats = format!(
                 "Cargo: {} | Weapon: {} | Shield: {} | Hull: {}",
                 ship.cargo_bays, ship.weapon_slots, ship.shield_slots, ship.hull_strength
             );
-            draw_text(&stats, stats_col, y, 10.0, SKYBLUE);
+            draw_text(&stats, stats_col, y, t.font_small, SKYBLUE);
             
             if is_current {
-                draw_text("OWNED", cost_col, y, 14.0, YELLOW);
+                draw_text("OWNED", cost_col, y, t.font_medium, YELLOW);
             } else {
                 let cost = ship.upgrade_cost_from_current(game_state);
                 let cost_color = if game_state.credits >= cost { GREEN } else { RED };
-                draw_text(&format!("{} cr", cost), cost_col, y, 16.0, cost_color);
+                draw_text(&format!("{} cr", cost), cost_col, y, t.font_medium, cost_color);
             }
         }
     }
     
     // Controls
-    let inst_y = screen_height() - 100.0;
-    draw_text("Controls:", 20.0, inst_y, 18.0, LIGHTGRAY);
+    let inst_y = screen_height() - t.header_height * 2.5;
+    draw_text("Controls:", t.margin, inst_y, t.font_medium, LIGHTGRAY);
     draw_text(
         "↑↓ - Select  |  ENTER/B - Buy  |  ESC/Q - Back",
-        20.0,
-        inst_y + 25.0,
-        14.0,
+        t.margin,
+        inst_y + t.line_height_small,
+        t.font_small,
         LIGHTGRAY,
     );
     
     // Show message if any
     if !message.is_empty() {
-        let msg_width = measure_text(message, None, 18, 1.0).width;
+        let msg_width = measure_text(message, None, t.font_large as u16, 1.0).width;
         let msg_x = (screen_width() - msg_width) / 2.0;
-        draw_rectangle(msg_x - 10.0, screen_height() / 2.0 + 50.0, msg_width + 20.0, 50.0,
+        draw_rectangle(msg_x - t.padding, screen_height() / 2.0 + t.margin * 2.5, msg_width + t.padding * 2.0, t.line_height * 2.0,
             Color::from_rgba(0, 0, 0, 200));
         let msg_color = if message.contains("Purchased") { GREEN } else { RED };
-        draw_text(message, msg_x, screen_height() / 2.0 + 75.0, 18.0, msg_color);
+        draw_text(message, msg_x, screen_height() / 2.0 + t.margin * 3.8, t.font_large, msg_color);
     }
 }
 

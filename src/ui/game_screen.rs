@@ -57,30 +57,30 @@ impl UiTheme {
         let scale = ui_scale();
         UiTheme {
             scale,
-            // Font sizes with higher minimum clamps for legibility at small resolutions
-            font_small: (10.0 * scale).max(11.0),
-            font_medium: (14.0 * scale).max(13.0),
-            font_large: (18.0 * scale).max(16.0),
-            font_title: (24.0 * scale).max(20.0),
-            font_header: (28.0 * scale).max(22.0),
+            // Font sizes - prioritize readability with higher base sizes and minimums
+            font_small: (14.0 * scale).max(14.0),
+            font_medium: (18.0 * scale).max(16.0),
+            font_large: (22.0 * scale).max(18.0),
+            font_title: (28.0 * scale).max(22.0),
+            font_header: (32.0 * scale).max(26.0),
             // Spacing - tighter minimums to allow UI to adapt at small sizes
             margin: (20.0 * scale).max(8.0),
             padding: (10.0 * scale).max(5.0),
-            line_height: (24.0 * scale).max(16.0),
-            line_height_small: (20.0 * scale).max(14.0),
+            line_height: (28.0 * scale).max(20.0),
+            line_height_small: (24.0 * scale).max(18.0),
             // Tab bar
-            tab_height: (28.0 * scale).max(20.0),
-            header_height: (45.0 * scale).max(32.0),
-            header_height_large: (50.0 * scale).max(36.0),
+            tab_height: (32.0 * scale).max(24.0),
+            header_height: (50.0 * scale).max(38.0),
+            header_height_large: (55.0 * scale).max(42.0),
             // System markers
-            system_marker_size: (14.0 * scale).clamp(8.0, 28.0),
-            system_marker_size_small: (10.0 * scale).clamp(6.0, 20.0),
-            hit_radius: (10.0 * scale).max(8.0),
+            system_marker_size: (16.0 * scale).clamp(10.0, 32.0),
+            system_marker_size_small: (12.0 * scale).clamp(8.0, 24.0),
+            hit_radius: (12.0 * scale).max(10.0),
             // Buttons
-            button_width: (140.0 * scale).max(90.0),
-            button_height: (50.0 * scale).max(32.0),
-            row_height: (25.0 * scale).clamp(18.0, 40.0),
-            row_height_large: (60.0 * scale).clamp(36.0, 90.0),
+            button_width: (150.0 * scale).max(100.0),
+            button_height: (55.0 * scale).max(36.0),
+            row_height: (30.0 * scale).clamp(22.0, 45.0),
+            row_height_large: (65.0 * scale).clamp(40.0, 95.0),
         }
     }
 }
@@ -886,19 +886,19 @@ pub fn draw_warp_screen(
             ];
             let politics_name = politics_names.get(system.politics as usize).unwrap_or(&"Unknown");
 
-            draw_text(&format!("Selected: {}", system.name), list_x, info_y, 14.0, WHITE);
+            draw_text(&format!("Selected: {}", system.name), list_x, info_y, t.font_medium, WHITE);
             draw_text(
                 &format!("{} | {}", tech_name, politics_name),
                 list_x,
-                info_y + 18.0,
-                12.0,
+                info_y + t.line_height_small,
+                t.font_small,
                 LIGHTGRAY,
             );
             draw_text(
                 &format!("Distance: {:.1} ly", dist),
                 list_x,
-                info_y + 36.0,
-                12.0,
+                info_y + t.line_height_small * 2.0,
+                t.font_small,
                 LIGHTGRAY,
             );
             draw_text(
@@ -908,45 +908,45 @@ pub fn draw_warp_screen(
                     if in_range { "In Range" } else { "Out of Range" }
                 ),
                 list_x,
-                info_y + 54.0,
-                12.0,
+                info_y + t.line_height_small * 3.0,
+                t.font_small,
                 if in_range { GREEN } else { RED },
             );
         }
     }
 
-    let inst_y = screen_height() - 100.0;
-    draw_text("Controls:", 20.0, inst_y, 18.0, LIGHTGRAY);
+    let inst_y = screen_height() - t.header_height * 2.5;
+    draw_text("Controls:", t.margin, inst_y, t.font_medium, LIGHTGRAY);
     draw_text(
         "↑↓ - Select  |  ENTER/W - Warp  |  G - Galactic Chart  |  ESC/Q - Cancel",
-        20.0,
-        inst_y + 25.0,
-        14.0,
+        t.margin,
+        inst_y + t.line_height_small,
+        t.font_small,
         LIGHTGRAY,
     );
     draw_text(
         "I/J/K/L - Pan Chart  |  +/- or Z/X - Zoom  |  Click: Select",
-        20.0,
-        inst_y + 45.0,
-        14.0,
+        t.margin,
+        inst_y + t.line_height_small * 2.0,
+        t.font_small,
         LIGHTGRAY,
     );
 
     if !message.is_empty() {
-        let msg_width = measure_text(message, None, 20, 1.0).width;
+        let msg_width = measure_text(message, None, t.font_large as u16, 1.0).width;
         let msg_x = (screen_width() - msg_width) / 2.0;
         draw_rectangle(
-            msg_x - 10.0,
-            screen_height() / 2.0 - 30.0,
-            msg_width + 20.0,
-            50.0,
+            msg_x - t.padding,
+            screen_height() / 2.0 - t.line_height,
+            msg_width + t.padding * 2.0,
+            t.line_height * 2.0,
             Color::from_rgba(0, 0, 0, 200),
         );
         draw_text(
             message,
             msg_x,
             screen_height() / 2.0,
-            20.0,
+            t.font_large,
             if message.contains("Successfully") {
                 GREEN
             } else {
