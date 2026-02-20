@@ -14,7 +14,7 @@ use assets::{GameAssets, draw_ship};
 use ui::{
     draw_encounter_screen, draw_galactic_chart, draw_main_menu, draw_panel, draw_repair_screen,
     draw_shipyard_screen, draw_system_info_screen, draw_text_with_limits, draw_trading_screen,
-    draw_warp_screen, galactic_chart_hit_test, short_range_chart_hit_test,
+    draw_warp_screen, galactic_chart_hit_test, short_range_chart_hit_test, theme,
 };
 use game::trading::{buy_cargo, sell_cargo, max_buyable, buy_fuel, get_fuel_cost, max_fuel_buyable};
 use game::pricing::{get_buy_price, determine_prices};
@@ -268,6 +268,7 @@ async fn main() {
             }
             GameScreen::Main => {
                 // Main game screen
+            let t = theme();
             let w = screen_width();
             let h = screen_height();
 
@@ -276,28 +277,30 @@ async fn main() {
             let bottom = Color::from_rgba(14, 20, 40, 255);
             let steps = 30;
             for i in 0..steps {
-                let t = i as f32 / (steps - 1) as f32;
-                let r = top.r + (bottom.r - top.r) * t;
-                let g = top.g + (bottom.g - top.g) * t;
-                let b = top.b + (bottom.b - top.b) * t;
+                let ti = i as f32 / (steps - 1) as f32;
+                let r = top.r + (bottom.r - top.r) * ti;
+                let g = top.g + (bottom.g - top.g) * ti;
+                let b = top.b + (bottom.b - top.b) * ti;
                 let y = h * (i as f32 / steps as f32);
                 draw_rectangle(0.0, y, w, h / steps as f32 + 1.0, Color::new(r, g, b, 1.0));
             }
 
             // Starfield
+            let star_scale = t.scale.max(0.8);
             for i in 0..90 {
                 let fx = (i as f32 * 91.0) % w;
                 let fy = (i as f32 * 57.0 + (i as f32 * 9.0).sin() * 20.0) % (h - 120.0);
                 let brightness = 0.5 + ((i % 8) as f32) * 0.05;
-                draw_circle(fx, fy, 1.0 + (i % 3) as f32 * 0.4, Color::new(brightness, brightness, brightness, 1.0));
+                draw_circle(fx, fy, (1.0 + (i % 3) as f32 * 0.4) * star_scale, Color::new(brightness, brightness, brightness, 1.0));
             }
 
             // Planet graphic
-            draw_circle(w * 0.78, h * 0.28, 70.0, Color::from_rgba(80, 110, 180, 255));
-            draw_circle(w * 0.80, h * 0.26, 55.0, Color::from_rgba(60, 90, 150, 255));
+            let planet_size = (70.0 * t.scale).clamp(50.0, 110.0);
+            draw_circle(w * 0.78, h * 0.28, planet_size, Color::from_rgba(80, 110, 180, 255));
+            draw_circle(w * 0.80, h * 0.26, planet_size * 0.78, Color::from_rgba(60, 90, 150, 255));
 
             // Header bar
-            draw_rectangle(0.0, 0.0, w, 46.0, Color::from_rgba(18, 28, 55, 230));
+            draw_rectangle(0.0, 0.0, w, t.header_height, Color::from_rgba(18, 28, 55, 230));
 
             let current_system = &game_state.solar_systems[game_state.current_system_id];
             let tech_names = ["Pre-Agri", "Agri", "Medieval", "Renaissance", "Early Ind", "Industrial", "Post-Ind", "Hi-Tech"];
@@ -335,26 +338,26 @@ async fn main() {
             // Header text
             draw_text(
                 &format!("Arrived at {}", game_state.current_system_name()),
-                20.0,
-                30.0,
-                22.0,
+                t.margin,
+                t.header_height * 0.65,
+                t.font_title,
                 WHITE,
             );
             draw_text(
                 &format!("Day {} | Credits: {} cr", game_state.days, game_state.credits),
-                w - 300.0,
-                30.0,
-                16.0,
+                w - t.margin * 15.0,
+                t.header_height * 0.65,
+                t.font_medium,
                 GOLD,
             );
 
             // Panels
-            let panel_top = 70.0;
-            let panel_h = 300.0;
-            let panel_w = (w - 60.0) / 3.0;
-            let panel_gap = 10.0;
+            let panel_top = t.header_height + t.margin;
+            let panel_h = (h - panel_top - t.header_height * 2.0).max(200.0);
+            let panel_w = (w - t.margin * 2.0 - t.padding * 2.0) / 3.0;
+            let panel_gap = t.padding;
 
-            let p1_x = 20.0;
+            let p1_x = t.margin;
             let p2_x = p1_x + panel_w + panel_gap;
             let p3_x = p2_x + panel_w + panel_gap;
 
@@ -363,95 +366,98 @@ async fn main() {
             }
 
             // System overview panel
-            draw_text("System Overview", p1_x + 12.0, panel_top + 28.0, 16.0, SKYBLUE);
-            let line = 24.0;
-            let y0 = panel_top + 60.0;
-            draw_text(&format!("Name: {}", current_system.name), p1_x + 12.0, y0, 14.0, WHITE);
-            draw_text(&format!("Size: {}", size_name), p1_x + 12.0, y0 + line, 14.0, WHITE);
-            draw_text(&format!("Tech: {}", tech_name), p1_x + 12.0, y0 + line * 2.0, 14.0, WHITE);
-            draw_text(&format!("Gov: {}", politics_name), p1_x + 12.0, y0 + line * 3.0, 14.0, WHITE);
-            draw_text(&format!("Resources: {}", resource_name), p1_x + 12.0, y0 + line * 4.0, 14.0, WHITE);
+            let text_inset = t.padding * 1.2;
+            let line = t.line_height;
+            let y0 = panel_top + t.line_height * 2.5;
+            draw_text("System Overview", p1_x + text_inset, panel_top + t.line_height, t.font_medium, SKYBLUE);
+            draw_text(&format!("Name: {}", current_system.name), p1_x + text_inset, y0, t.font_medium, WHITE);
+            draw_text(&format!("Size: {}", size_name), p1_x + text_inset, y0 + line, t.font_medium, WHITE);
+            draw_text(&format!("Tech: {}", tech_name), p1_x + text_inset, y0 + line * 2.0, t.font_medium, WHITE);
+            draw_text(&format!("Gov: {}", politics_name), p1_x + text_inset, y0 + line * 3.0, t.font_medium, WHITE);
+            draw_text(&format!("Resources: {}", resource_name), p1_x + text_inset, y0 + line * 4.0, t.font_medium, WHITE);
             draw_text(
                 &format!("Coords: {}, {}", current_system.x, current_system.y),
-                p1_x + 12.0,
+                p1_x + text_inset,
                 y0 + line * 5.0,
-                14.0,
+                t.font_medium,
                 LIGHTGRAY,
             );
             draw_text(
                 &format!("Visited: {}", if current_system.visited { "Yes" } else { "No" }),
-                p1_x + 12.0,
+                p1_x + text_inset,
                 y0 + line * 6.0,
-                14.0,
+                t.font_medium,
                 LIGHTGRAY,
             );
 
             // Ship status panel
-            draw_text("Ship Status", p2_x + 12.0, panel_top + 28.0, 16.0, SKYBLUE);
+            draw_text("Ship Status", p2_x + text_inset, panel_top + t.line_height, t.font_medium, SKYBLUE);
             let total_cargo = game_state.ship.total_cargo();
             let max_cargo = game_state.ship.cargo_bays_available() + total_cargo;
             let max_hull = get_max_hull(&game_state);
-            draw_text(&format!("Ship: {}", game_state.ship.name), p2_x + 12.0, y0, 14.0, WHITE);
-            draw_text(&format!("Hull: {}/{}", game_state.ship.hull, max_hull), p2_x + 12.0, y0 + line, 14.0, if game_state.ship.hull > (max_hull / 3) { GREEN } else { RED });
-            draw_text(&format!("Fuel: {}/{}", game_state.ship.fuel, game_state.ship.max_fuel()), p2_x + 12.0, y0 + line * 2.0, 14.0, WHITE);
-            draw_text(&format!("Cargo: {}/{}", total_cargo, max_cargo), p2_x + 12.0, y0 + line * 3.0, 14.0, YELLOW);
-            draw_text(&format!("Weapons: {}", game_state.ship.weapon_rating), p2_x + 12.0, y0 + line * 4.0, 14.0, LIGHTGRAY);
-            draw_text(&format!("Shield: {}", if game_state.ship.shield_installed { "Yes" } else { "No" }), p2_x + 12.0, y0 + line * 5.0, 14.0, LIGHTGRAY);
+            draw_text(&format!("Ship: {}", game_state.ship.name), p2_x + text_inset, y0, t.font_medium, WHITE);
+            draw_text(&format!("Hull: {}/{}", game_state.ship.hull, max_hull), p2_x + text_inset, y0 + line, t.font_medium, if game_state.ship.hull > (max_hull / 3) { GREEN } else { RED });
+            draw_text(&format!("Fuel: {}/{}", game_state.ship.fuel, game_state.ship.max_fuel()), p2_x + text_inset, y0 + line * 2.0, t.font_medium, WHITE);
+            draw_text(&format!("Cargo: {}/{}", total_cargo, max_cargo), p2_x + text_inset, y0 + line * 3.0, t.font_medium, YELLOW);
+            draw_text(&format!("Weapons: {}", game_state.ship.weapon_rating), p2_x + text_inset, y0 + line * 4.0, t.font_medium, LIGHTGRAY);
+            draw_text(&format!("Shield: {}", if game_state.ship.shield_installed { "Yes" } else { "No" }), p2_x + text_inset, y0 + line * 5.0, t.font_medium, LIGHTGRAY);
 
             let fuel_cost = get_fuel_cost(&game_state);
             let max_buyable_fuel = max_fuel_buyable(&game_state);
-            draw_text(&format!("Fuel: {} cr/unit", fuel_cost), p2_x + 12.0, y0 + line * 6.0, 14.0, LIGHTGRAY);
-            draw_text(&format!("Can buy: {} units", max_buyable_fuel), p2_x + 12.0, y0 + line * 7.0, 14.0, LIGHTGRAY);
+            draw_text(&format!("Fuel: {} cr/unit", fuel_cost), p2_x + text_inset, y0 + line * 6.0, t.font_medium, LIGHTGRAY);
+            draw_text(&format!("Can buy: {} units", max_buyable_fuel), p2_x + text_inset, y0 + line * 7.0, t.font_medium, LIGHTGRAY);
 
             if let Some(ref assets) = assets {
-                draw_ship(assets, game_state.ship.name.as_str(), p2_x + panel_w - 80.0, panel_top + 170.0, false, false, 0.8);
+                let ship_scale = (0.8 * t.scale).clamp(0.5, 1.5);
+                draw_ship(assets, game_state.ship.name.as_str(), p2_x + panel_w - t.margin * 4.0, panel_top + panel_h * 0.5, false, false, ship_scale);
             } else {
-                let ship_x = p2_x + panel_w - 70.0;
-                let ship_y = panel_top + 190.0;
+                let ship_x = p2_x + panel_w - t.margin * 3.5;
+                let ship_y = panel_top + panel_h * 0.55;
+                let ship_size = (18.0 * t.scale).clamp(12.0, 30.0);
                 draw_triangle(
-                    vec2(ship_x, ship_y - 18.0),
-                    vec2(ship_x - 12.0, ship_y + 18.0),
-                    vec2(ship_x + 12.0, ship_y + 18.0),
+                    vec2(ship_x, ship_y - ship_size),
+                    vec2(ship_x - ship_size * 0.67, ship_y + ship_size),
+                    vec2(ship_x + ship_size * 0.67, ship_y + ship_size),
                     GRAY,
                 );
             }
 
             // Next steps panel
-            draw_text("Next Steps", p3_x + 12.0, panel_top + 28.0, 16.0, SKYBLUE);
-            draw_text("T - Trade (Buy/Sell)", p3_x + 12.0, y0, 14.0, WHITE);
-            draw_text("W - Warp to another system", p3_x + 12.0, y0 + line, 14.0, WHITE);
-            draw_text("I - System Info", p3_x + 12.0, y0 + line * 2.0, 14.0, WHITE);
-            draw_text("U - Ship Yard (Upgrades)", p3_x + 12.0, y0 + line * 3.0, 14.0, WHITE);
-            draw_text("R - Repair Dock", p3_x + 12.0, y0 + line * 4.0, 14.0, WHITE);
-            draw_text("H - Ship Shop", p3_x + 12.0, y0 + line * 5.0, 14.0, WHITE);
-            draw_text("F - Refuel", p3_x + 12.0, y0 + line * 6.0, 14.0, WHITE);
-            draw_text("S - Save | Q - Quit", p3_x + 12.0, y0 + line * 7.0, 14.0, LIGHTGRAY);
+            draw_text("Next Steps", p3_x + text_inset, panel_top + t.line_height, t.font_medium, SKYBLUE);
+            draw_text("T - Trade (Buy/Sell)", p3_x + text_inset, y0, t.font_medium, WHITE);
+            draw_text("W - Warp to another system", p3_x + text_inset, y0 + line, t.font_medium, WHITE);
+            draw_text("I - System Info", p3_x + text_inset, y0 + line * 2.0, t.font_medium, WHITE);
+            draw_text("U - Ship Yard (Upgrades)", p3_x + text_inset, y0 + line * 3.0, t.font_medium, WHITE);
+            draw_text("R - Repair Dock", p3_x + text_inset, y0 + line * 4.0, t.font_medium, WHITE);
+            draw_text("H - Ship Shop", p3_x + text_inset, y0 + line * 5.0, t.font_medium, WHITE);
+            draw_text("F - Refuel", p3_x + text_inset, y0 + line * 6.0, t.font_medium, WHITE);
+            draw_text("S - Save | Q - Quit", p3_x + text_inset, y0 + line * 7.0, t.font_medium, LIGHTGRAY);
 
             // Footer hint
             draw_text(
                 "Tip: Use Trade to compare prices or Warp to explore new systems.",
-                20.0,
-                h - 60.0,
-                14.0,
+                t.margin,
+                h - t.margin * 3.0,
+                t.font_medium,
                 LIGHTGRAY,
             );
 
             if !has_assets {
                 draw_text(
                     "Note: Run 'python tools/generate_placeholder_assets.py' to generate assets",
-                    20.0,
-                    h - 35.0,
-                    14.0,
+                    t.margin,
+                    h - t.margin * 1.75,
+                    t.font_medium,
                     YELLOW,
                 );
             }
 
             // Show message if any
                 if !trade_message.is_empty() {
-                let msg_width = measure_text(&trade_message, None, 20, 1.0).width;
+                let msg_width = measure_text(&trade_message, None, t.font_large as u16, 1.0).width;
                 let msg_x = (w - msg_width) / 2.0;
-                draw_rectangle(msg_x - 12.0, h / 2.0 - 24.0, msg_width + 24.0, 36.0, Color::from_rgba(0, 0, 0, 200));
-                draw_text(&trade_message, msg_x, h / 2.0, 20.0, GREEN);
+                draw_rectangle(msg_x - t.padding, h / 2.0 - t.line_height, msg_width + t.padding * 2.0, t.line_height * 1.5, Color::from_rgba(0, 0, 0, 200));
+                draw_text(&trade_message, msg_x, h / 2.0, t.font_large, GREEN);
             }
             }
         }
