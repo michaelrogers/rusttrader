@@ -4,8 +4,8 @@ Canonical live status for active implementation.
 
 ## Now
 
-- **Focus:** UI architecture cleanup complete. Ready for next priority.
-- **Constraint:** maintain behavior parity during extraction.
+- **Focus:** Bug fixes and UI polish
+- **Current:** Fixed warp screen scaling regression - camera now properly scaled to panel bounds
 
 ## Next
 
@@ -27,6 +27,7 @@ Canonical live status for active implementation.
 - Documented current UI module ownership boundaries in `docs/DECISIONS.md`.
 - Consolidated shared drawing utilities: `draw_text_with_limits` and `draw_panel` now public in ui module.
 - Removed duplicate code and reduced UI formatting duplication across modules.
+- **Fixed warp screen scaling regression:** Changed camera rect from full screen to panel bounds, ensuring proper viewport scaling.
 
 ## Drift Notes
 

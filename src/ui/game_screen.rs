@@ -170,7 +170,7 @@ fn draw_short_range_chart(
 ) {
     draw_panel(panel_x, panel_y, panel_w, panel_h);
 
-    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
+    let mut camera = Camera2D::from_display_rect(Rect::new(panel_x, panel_y, panel_w, panel_h));
     camera.viewport = Some((panel_x as i32, panel_y as i32, panel_w as i32, panel_h as i32));
     set_camera(&camera);
 
