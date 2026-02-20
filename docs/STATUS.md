@@ -4,12 +4,12 @@ Canonical live status for active implementation.
 
 ## Now
 
-- **Focus:** Bug fixes and UI polish
-- **Current:** Fixed warp screen - now fills panel with proper text rendering using two-pass approach
+- **Focus:** Bug fixes and rendering cleanup
+- **Current:** Finalized warp screen - explicit bounds checking for geometry, text at full resolution
 
 ## Next
 
-1. Test warp screen with resizing to confirm no regressions
+1. Test warp screen with various resolutions to confirm no regressions  
 2. Evaluate P1 (Save/Load Path Consistency) or P2 (Asset Naming + Doc Consistency)
 3. Optional: Extract remaining main-screen/ship-shop rendering
 
@@ -27,7 +27,10 @@ Canonical live status for active implementation.
 - Documented current UI module ownership boundaries in `docs/DECISIONS.md`.
 - Consolidated shared drawing utilities: `draw_text_with_limits` and `draw_panel` now public in ui module.
 - Removed duplicate code and reduced UI formatting duplication across modules.
-- **Fixed warp screen rendering:** Implemented two-pass rendering - map with panel-relative camera fills panel, text renders in screen space to prevent clipping and corruption.
+- **Fixed warp screen rendering:** 
+  - Full-screen camera for consistent coordinates and text legibility
+  - Explicit bounds checking for circles, lines, and crosshair to prevent overflow
+  - Text labels render in screen space at full resolution
 
 ## Drift Notes
 
