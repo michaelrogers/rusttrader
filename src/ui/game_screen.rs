@@ -140,8 +140,17 @@ fn short_range_chart_transform(
     panel_w: f32,
     panel_h: f32,
 ) -> (Vec2, f32, f32) {
-    let center = vec2(panel_x + panel_w / 2.0 + pan.x, panel_y + panel_h / 2.0 + pan.y);
-    let radius = (panel_w.min(panel_h) * 0.5) - 6.0;
+    // Use the smaller dimension to ensure circles stay circular
+    let chart_size = panel_w.min(panel_h);
+    // Leave padding for title and footer text
+    let usable_size = chart_size - 60.0;
+    let radius = (usable_size * 0.5).max(50.0);
+    
+    // Center in the panel
+    let center_x = panel_x + panel_w / 2.0 + pan.x;
+    let center_y = panel_y + panel_h / 2.0 + pan.y;
+    let center = vec2(center_x, center_y);
+    
     let max_range = game_state.ship.max_fuel().max(1) as f32;
     let scale = (radius / max_range) * zoom;
     (center, radius, scale)
@@ -262,11 +271,7 @@ fn draw_short_range_chart(
     let t = theme();
     draw_panel(panel_x, panel_y, panel_w, panel_h);
 
-    // Use full-screen camera with viewport for coordinate consistency
-    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
-    camera.viewport = Some((panel_x as i32, panel_y as i32, panel_w as i32, panel_h as i32));
-    set_camera(&camera);
-
+    // Draw in screen space directly - no camera transform to avoid aspect distortion
     let (center, radius, scale) =
         short_range_chart_transform(game_state, pan, zoom, panel_x, panel_y, panel_w, panel_h);
     let center_x = center.x;
@@ -337,10 +342,11 @@ fn draw_short_range_chart(
             Color::from_rgba(110, 110, 130, 200)
         };
 
-        let marker_r = if is_current { t.system_marker_size * 0.4 } else { t.system_marker_size * 0.3 };
+        // Larger markers for better visibility
+        let marker_r = if is_current { t.system_marker_size * 0.7 } else { t.system_marker_size * 0.5 };
         draw_circle(px, py, marker_r, color);
         if is_selected {
-            draw_circle_lines(px, py, marker_r + 2.0 * t.scale, 2.0, Color::from_rgba(255, 230, 150, 220));
+            draw_circle_lines(px, py, marker_r + 3.0 * t.scale, 2.5, Color::from_rgba(255, 230, 150, 220));
         }
 
         let label_color = if dist <= current_range {
@@ -411,12 +417,9 @@ fn draw_short_range_chart(
         }
     }
 
-    // Switch back to default camera for UI text rendering (screen space, full resolution)
-    set_default_camera();
-
-    // Render system labels in screen space to avoid clipping and maintain legibility
-    let label_size = t.font_small;
-    let marker_offset = t.system_marker_size * 0.6;
+    // Render system labels with larger font for readability
+    let label_size = t.font_medium;
+    let marker_offset = t.system_marker_size * 0.9;
     for (name, px, py, color) in labels {
         let name_w = measure_text(&name, None, label_size as u16, 1.0).width;
         let label_x = px - name_w / 2.0;
