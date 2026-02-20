@@ -170,7 +170,7 @@ fn draw_short_range_chart(
 ) {
     draw_panel(panel_x, panel_y, panel_w, panel_h);
 
-    let mut camera = Camera2D::from_display_rect(Rect::new(panel_x, panel_y, panel_w, panel_h));
+    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
     camera.viewport = Some((panel_x as i32, panel_y as i32, panel_w as i32, panel_h as i32));
     set_camera(&camera);
 
@@ -234,12 +234,23 @@ fn draw_short_range_chart(
 
         let name = &system.name;
         let name_w = measure_text(name, None, 12, 1.0).width;
-        let label_color = if dist <= current_range {
-            WHITE
-        } else {
-            Color::from_rgba(190, 190, 200, 200)
-        };
-        draw_text(name, px - name_w / 2.0, py - 8.0, 12.0, label_color);
+        let label_x = px - name_w / 2.0;
+        let label_y = py - 8.0;
+        
+        // Only render text if it stays fully within bounds (with 10px margin for safety)
+        let text_in_bounds = label_x >= panel_x + 10.0
+            && label_x + name_w <= panel_x + panel_w - 10.0
+            && label_y >= panel_y + 10.0
+            && label_y + 12.0 <= panel_y + panel_h - 10.0;
+            
+        if text_in_bounds {
+            let label_color = if dist <= current_range {
+                WHITE
+            } else {
+                Color::from_rgba(190, 190, 200, 200)
+            };
+            draw_text(name, label_x, label_y, 12.0, label_color);
+        }
     }
 
     draw_line(
