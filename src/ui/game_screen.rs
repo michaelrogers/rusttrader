@@ -170,8 +170,8 @@ fn draw_short_range_chart(
 ) {
     draw_panel(panel_x, panel_y, panel_w, panel_h);
 
-    // Use panel-relative camera so map fills the entire panel
-    let mut camera = Camera2D::from_display_rect(Rect::new(panel_x, panel_y, panel_w, panel_h));
+    // Use full-screen camera with viewport for coordinate consistency
+    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
     camera.viewport = Some((panel_x as i32, panel_y as i32, panel_w as i32, panel_h as i32));
     set_camera(&camera);
 
@@ -180,25 +180,39 @@ fn draw_short_range_chart(
     let center_x = center.x;
     let center_y = center.y;
 
-    draw_circle_lines(
-        center_x,
-        center_y,
-        radius,
-        2.0,
-        Color::from_rgba(200, 200, 220, 200),
-    );
+    // Helper: check if a point with radius is visible in panel
+    let drawable_circle = |x: f32, y: f32, r: f32| -> bool {
+        x + r >= panel_x + 6.0
+            && x - r <= panel_x + panel_w - 6.0
+            && y + r >= panel_y + 6.0
+            && y - r <= panel_y + panel_h - 6.0
+    };
+
+    // Draw range circles if they fit
+    if drawable_circle(center_x, center_y, radius) {
+        draw_circle_lines(
+            center_x,
+            center_y,
+            radius,
+            2.0,
+            Color::from_rgba(200, 200, 220, 200),
+        );
+    }
 
     let current = &game_state.solar_systems[game_state.current_system_id];
     let max_range = game_state.ship.max_fuel().max(1) as f32;
     let current_range = game_state.ship.fuel.max(0) as f32;
     let fuel_radius = radius * (current_range / max_range).min(1.0);
-    draw_circle_lines(
-        center_x,
-        center_y,
-        fuel_radius,
-        2.0,
-        Color::from_rgba(120, 190, 120, 200),
-    );
+    
+    if drawable_circle(center_x, center_y, fuel_radius) {
+        draw_circle_lines(
+            center_x,
+            center_y,
+            fuel_radius,
+            2.0,
+            Color::from_rgba(120, 190, 120, 200),
+        );
+    }
 
     // Collect labels to render after switching camera
     let mut labels: Vec<(String, f32, f32, Color)> = Vec::new();
@@ -244,22 +258,27 @@ fn draw_short_range_chart(
         labels.push((system.name.clone(), px, py, label_color));
     }
 
-    draw_line(
-        center_x - 6.0,
-        center_y,
-        center_x + 6.0,
-        center_y,
-        2.0,
-        Color::from_rgba(70, 140, 255, 255),
-    );
-    draw_line(
-        center_x,
-        center_y - 6.0,
-        center_x,
-        center_y + 6.0,
-        2.0,
-        Color::from_rgba(70, 140, 255, 255),
-    );
+    // Draw center crosshair if it's in view
+    if center_x >= panel_x + 6.0 && center_x <= panel_x + panel_w - 6.0
+        && center_y >= panel_y + 6.0 && center_y <= panel_y + panel_h - 6.0
+    {
+        draw_line(
+            center_x - 6.0,
+            center_y,
+            center_x + 6.0,
+            center_y,
+            2.0,
+            Color::from_rgba(70, 140, 255, 255),
+        );
+        draw_line(
+            center_x,
+            center_y - 6.0,
+            center_x,
+            center_y + 6.0,
+            2.0,
+            Color::from_rgba(70, 140, 255, 255),
+        );
+    }
 
     let mut waypoint_info: Option<(String, f32)> = None;
     if let Some(waypoint_id) = waypoint_system {
@@ -271,28 +290,38 @@ fn draw_short_range_chart(
             let clamped = dist.min(current_range.max(1.0));
             let vx = dx / dist * clamped * scale;
             let vy = dy / dist * clamped * scale;
-            draw_line(
-                center_x,
-                center_y,
-                center_x + vx,
-                center_y + vy,
-                2.0,
-                Color::from_rgba(255, 180, 80, 255),
-            );
-            draw_circle(
-                center_x + vx,
-                center_y + vy,
-                5.0,
-                Color::from_rgba(255, 180, 80, 255),
-            );
+            let end_x = center_x + vx;
+            let end_y = center_y + vy;
+            
+            // Only draw waypoint line if endpoints are visible
+            if (center_x >= panel_x + 6.0 && center_x <= panel_x + panel_w - 6.0
+                && center_y >= panel_y + 6.0 && center_y <= panel_y + panel_h - 6.0)
+                && (end_x >= panel_x + 6.0 && end_x <= panel_x + panel_w - 6.0
+                && end_y >= panel_y + 6.0 && end_y <= panel_y + panel_h - 6.0)
+            {
+                draw_line(
+                    center_x,
+                    center_y,
+                    end_x,
+                    end_y,
+                    2.0,
+                    Color::from_rgba(255, 180, 80, 255),
+                );
+                draw_circle(
+                    end_x,
+                    end_y,
+                    5.0,
+                    Color::from_rgba(255, 180, 80, 255),
+                );
+            }
             waypoint_info = Some((target.name.clone(), dist));
         }
     }
 
-    // Switch back to default camera for UI text rendering (screen space)
+    // Switch back to default camera for UI text rendering (screen space, full resolution)
     set_default_camera();
 
-    // Render system labels in screen space to avoid clipping
+    // Render system labels in screen space to avoid clipping and maintain legibility
     for (name, px, py, color) in labels {
         let name_w = measure_text(&name, None, 12, 1.0).width;
         let label_x = px - name_w / 2.0;
