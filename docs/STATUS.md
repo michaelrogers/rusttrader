@@ -4,12 +4,12 @@ Canonical live status for active implementation.
 
 ## Now
 
-- **Focus:** Bug fixes and rendering cleanup
-- **Current:** Finalized warp screen - explicit bounds checking for geometry, text at full resolution
+- **Focus:** Rendering cleanup and window resize handling
+- **Current:** Fixed both chart screens for proper viewport clipping on window resize
 
 ## Next
 
-1. Test warp screen with various resolutions to confirm no regressions  
+1. Test both charts with various window sizes to confirm clipping works
 2. Evaluate P1 (Save/Load Path Consistency) or P2 (Asset Naming + Doc Consistency)
 3. Optional: Extract remaining main-screen/ship-shop rendering
 
@@ -27,10 +27,14 @@ Canonical live status for active implementation.
 - Documented current UI module ownership boundaries in `docs/DECISIONS.md`.
 - Consolidated shared drawing utilities: `draw_text_with_limits` and `draw_panel` now public in ui module.
 - Removed duplicate code and reduced UI formatting duplication across modules.
-- **Fixed warp screen rendering:** 
+- **Fixed short-range chart rendering:** 
   - Full-screen camera for consistent coordinates and text legibility
-  - Explicit bounds checking for circles, lines, and crosshair to prevent overflow
+  - Explicit bounds checking for circles, lines, and crosshair
   - Text labels render in screen space at full resolution
+- **Fixed galactic chart rendering:**
+  - Added viewport setup for proper clipping on window resize
+  - Range circle and system squares only render if visible
+  - Text labels render in screen space to prevent corruption
 
 ## Drift Notes
 

@@ -689,8 +689,15 @@ async fn main() {
                 current_screen = GameScreen::GalacticChart;
             }
         } else if current_screen == GameScreen::GalacticChart {
-            // Pan/zoom controls
-            let pan_speed = 6.0;
+            // Chart bounds for input handling
+            let chart_x = 20.0;
+            let chart_y = 80.0;
+            let chart_w = screen_width() - 40.0;
+            let chart_h = screen_height() - 140.0;
+            let mouse = vec2(mouse_position().0, mouse_position().1);
+            
+            // Pan/zoom controls - scale pan speed with zoom for consistent feel
+            let pan_speed = 6.0 / galactic_zoom;
             if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
                 galactic_pan.x += pan_speed;
             }
@@ -703,19 +710,36 @@ async fn main() {
             if is_key_down(KeyCode::Down) || is_key_down(KeyCode::S) {
                 galactic_pan.y -= pan_speed;
             }
+            
+            // Keyboard zoom
             if is_key_pressed(KeyCode::Minus) {
-                galactic_zoom = (galactic_zoom - 0.1).max(0.6);
+                galactic_zoom = (galactic_zoom - 0.1).max(0.5);
             }
             if is_key_pressed(KeyCode::Equal) {
-                galactic_zoom = (galactic_zoom + 0.1).min(2.5);
+                galactic_zoom = (galactic_zoom + 0.1).min(3.0);
+            }
+            
+            // Mouse wheel zoom (zoom toward center)
+            let (_, wheel_y) = mouse_wheel();
+            if wheel_y != 0.0 {
+                let zoom_delta = wheel_y * 0.1;
+                galactic_zoom = (galactic_zoom + zoom_delta).clamp(0.5, 3.0);
+            }
+            
+            // Mouse drag pan (right mouse button)
+            if is_mouse_button_down(MouseButton::Right) {
+                let delta = mouse_delta_position();
+                galactic_pan.x += delta.x / galactic_zoom;
+                galactic_pan.y += delta.y / galactic_zoom;
+            }
+            
+            // Reset view (R key or Home)
+            if is_key_pressed(KeyCode::R) || is_key_pressed(KeyCode::Home) {
+                galactic_pan = vec2(0.0, 0.0);
+                galactic_zoom = 1.0;
             }
 
             // Click select system
-            let chart_x = 20.0;
-            let chart_y = 80.0;
-            let chart_w = screen_width() - 40.0;
-            let chart_h = screen_height() - 140.0;
-            let mouse = vec2(mouse_position().0, mouse_position().1);
             if is_mouse_button_pressed(MouseButton::Left) {
                 if let Some(hit_id) = galactic_chart_hit_test(
                     &game_state,

@@ -116,8 +116,19 @@ fn galactic_chart_transform(
     pan: Vec2,
     zoom: f32,
 ) -> (Vec2, f32) {
-    let scale = (chart_w.min(chart_h) - 20.0) / 150.0 * zoom;
-    let origin = vec2(chart_x + 10.0 + pan.x, chart_y + 10.0 + pan.y);
+    // Galaxy coordinates are 0-150 in both dimensions
+    let galaxy_size = 150.0;
+    
+    // Calculate scale to fit galaxy in available space (maintaining aspect ratio)
+    let scale = (chart_w.min(chart_h) - 20.0) / galaxy_size * zoom;
+    
+    // Center the galaxy in the chart area
+    let galaxy_rendered_size = galaxy_size * scale;
+    let center_x = chart_x + (chart_w - galaxy_rendered_size) / 2.0;
+    let center_y = chart_y + (chart_h - galaxy_rendered_size) / 2.0;
+    
+    // Apply pan (scaled by zoom for consistent feel)
+    let origin = vec2(center_x + pan.x * zoom, center_y + pan.y * zoom);
     (origin, scale)
 }
 
@@ -451,9 +462,22 @@ pub fn draw_galactic_chart(
     // Switch back to default camera for UI text rendering (screen space, full resolution)
     set_default_camera();
 
+    // Zoom-aware font sizing for labels
+    let label_font_size = (10.0 * zoom).clamp(8.0, 14.0);
+    
+    // Only show most labels when zoomed in (reduces clutter)
+    let show_all_labels = zoom >= 1.2;
+
     // Render system labels in screen space to avoid clipping
-    for (name, px, py, _color) in labels {
-        let text_w = measure_text(&name, None, 12, 1.0).width;
+    for (name, px, py, color) in labels {
+        let is_important = color.r > 0.5 || color.g > 0.8; // Current, waypoint, or selected
+        
+        // Skip non-important labels when zoomed out
+        if !show_all_labels && !is_important {
+            continue;
+        }
+        
+        let text_w = measure_text(&name, None, label_font_size as u16, 1.0).width;
         let text_x = px + 6.0;
         let text_y = py - 6.0;
         
@@ -461,22 +485,22 @@ pub fn draw_galactic_chart(
         let text_in_bounds = text_x >= chart_x + 10.0
             && text_x + text_w <= chart_x + chart_w - 10.0
             && text_y >= chart_y + 10.0
-            && text_y + 12.0 <= chart_y + chart_h - 10.0;
+            && text_y + label_font_size <= chart_y + chart_h - 10.0;
             
         if text_in_bounds {
-            draw_text(&name, text_x, text_y, 12.0, WHITE);
+            draw_text(&name, text_x, text_y, label_font_size, WHITE);
         }
     }
 
-    // Render current and waypoint labels
+    // Render current and waypoint labels (always visible, important systems)
     let current_text_x = current_px + 6.0;
     let current_text_y = current_py - 6.0;
     if current_text_x >= chart_x + 10.0
-        && current_text_x + measure_text(&current.name, None, 12, 1.0).width <= chart_x + chart_w - 10.0
+        && current_text_x + measure_text(&current.name, None, label_font_size as u16, 1.0).width <= chart_x + chart_w - 10.0
         && current_text_y >= chart_y + 10.0
-        && current_text_y + 12.0 <= chart_y + chart_h - 10.0
+        && current_text_y + label_font_size <= chart_y + chart_h - 10.0
     {
-        draw_text(&current.name, current_text_x, current_text_y, 12.0, WHITE);
+        draw_text(&current.name, current_text_x, current_text_y, label_font_size, Color::from_rgba(100, 180, 255, 255));
     }
 
     if let Some(waypoint_id) = waypoint_system {
@@ -487,15 +511,15 @@ pub fn draw_galactic_chart(
         let waypoint_text_y = ty - 6.0;
         
         if waypoint_text_x >= chart_x + 10.0
-            && waypoint_text_x + measure_text(&target.name, None, 12, 1.0).width <= chart_x + chart_w - 10.0
+            && waypoint_text_x + measure_text(&target.name, None, label_font_size as u16, 1.0).width <= chart_x + chart_w - 10.0
             && waypoint_text_y >= chart_y + 10.0
-            && waypoint_text_y + 12.0 <= chart_y + chart_h - 10.0
+            && waypoint_text_y + label_font_size <= chart_y + chart_h - 10.0
         {
             draw_text(
                 &target.name,
                 waypoint_text_x,
                 waypoint_text_y,
-                12.0,
+                label_font_size,
                 Color::from_rgba(255, 210, 140, 255),
             );
         }
@@ -559,8 +583,20 @@ pub fn draw_galactic_chart(
     );
 
     let footer_y = screen_height() - 40.0;
+    
+    // Zoom indicator in top-right of chart
+    let zoom_text = format!("Zoom: {:.1}x", zoom);
+    let zoom_text_w = measure_text(&zoom_text, None, 12, 1.0).width;
+    draw_text(&zoom_text, chart_x + chart_w - zoom_text_w - 10.0, chart_y + 18.0, 12.0, LIGHTGRAY);
+    
+    // Pan indicator if not centered
+    if pan.x.abs() > 0.5 || pan.y.abs() > 0.5 {
+        draw_text("[R to reset view]", chart_x + chart_w - zoom_text_w - 120.0, chart_y + 18.0, 12.0, 
+            Color::from_rgba(150, 150, 170, 200));
+    }
+    
     draw_text(
-        "Arrows/WASD: Pan | +/-: Zoom | Click: Select | F: Find | Enter: Set Waypoint | Esc/Q: Back",
+        "Pan: Arrows/WASD/Drag | Zoom: +/-/Wheel | R: Reset | Click: Select | F: Find | Esc: Back",
         20.0,
         footer_y,
         14.0,
