@@ -984,24 +984,25 @@ pub fn draw_text_with_limits(text: &str, x: f32, mut y: f32, font_size: f32, col
 }
 
 pub fn draw_repair_screen(game_state: &GameState, message: &str) {
+    let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
 
-    draw_rectangle(0.0, 0.0, screen_width(), 50.0, Color::from_rgba(80, 0, 160, 255));
-    draw_text("Repair Dock", 20.0, 25.0, 28.0, WHITE);
+    draw_rectangle(0.0, 0.0, screen_width(), t.header_height, Color::from_rgba(80, 0, 160, 255));
+    draw_text("Repair Dock", t.margin, t.header_height * 0.6, t.font_title, WHITE);
     draw_text(
         &format!("Credits: {}", game_state.credits),
-        screen_width() - 200.0,
-        25.0,
-        18.0,
+        screen_width() - t.margin * 10.0,
+        t.header_height * 0.6,
+        t.font_medium,
         GOLD,
     );
 
     if !can_repair(game_state) {
         draw_text(
             "No repair facilities available at this tech level",
-            screen_width() / 2.0 - 240.0,
+            screen_width() / 2.0 - 240.0 * t.scale,
             screen_height() / 2.0,
-            20.0,
+            t.font_large,
             RED,
         );
     } else {
@@ -1010,24 +1011,24 @@ pub fn draw_repair_screen(game_state: &GameState, message: &str) {
         let cost_per_point = calculate_repair_cost_per_point(game_state);
         let full_repair_cost = calculate_full_repair_cost(game_state);
 
-        let left = 40.0;
-        let y_start = 90.0;
+        let left = t.margin * 2.0;
+        let y_start = t.header_height + t.margin * 2.0;
 
-        draw_text("Hull Status:", left, y_start, 18.0, LIGHTGRAY);
+        draw_text("Hull Status:", left, y_start, t.font_medium, LIGHTGRAY);
 
         let hull_color = if game_state.ship.hull > 15 { GREEN } else { RED };
         draw_text(
             &format!("{} / {} HP", game_state.ship.hull, max_hull),
             left,
-            y_start + 30.0,
-            18.0,
+            y_start + t.line_height * 1.2,
+            t.font_medium,
             hull_color,
         );
 
-        let bar_width = 300.0;
-        let bar_height = 20.0;
+        let bar_width = (300.0 * t.scale).clamp(200.0, 500.0);
+        let bar_height = (20.0 * t.scale).clamp(15.0, 35.0);
         let bar_x = left;
-        let bar_y = y_start + 60.0;
+        let bar_y = y_start + t.line_height * 2.5;
 
         draw_rectangle(
             bar_x,
@@ -1038,10 +1039,10 @@ pub fn draw_repair_screen(game_state: &GameState, message: &str) {
         );
         let repair_percentage = game_state.ship.hull as f32 / max_hull as f32;
         draw_rectangle(bar_x, bar_y, bar_width * repair_percentage, bar_height, GREEN);
-        draw_rectangle_lines(bar_x, bar_y, bar_width, bar_height, 2.0, WHITE);
+        draw_rectangle_lines(bar_x, bar_y, bar_width, bar_height, (2.0 * t.scale).clamp(1.0, 4.0), WHITE);
 
-        let option_y = y_start + 120.0;
-        draw_text("Repair Options:", left, option_y, 18.0, LIGHTGRAY);
+        let option_y = y_start + t.line_height * 5.0;
+        draw_text("Repair Options:", left, option_y, t.font_medium, LIGHTGRAY);
 
         let repair_small = 10.min(damage_taken);
         let cost_small = calculate_repair_cost_per_point(game_state) * repair_small;
@@ -1056,8 +1057,8 @@ pub fn draw_repair_screen(game_state: &GameState, message: &str) {
         draw_text(
             &format!("1 - Repair {} HP ({})", repair_small, cost_small_str),
             left,
-            option_y + 35.0,
-            14.0,
+            option_y + t.line_height * 1.5,
+            t.font_medium,
             color_small,
         );
 
@@ -1074,8 +1075,8 @@ pub fn draw_repair_screen(game_state: &GameState, message: &str) {
         draw_text(
             &format!("2 - Repair {} HP ({})", repair_medium, cost_medium_str),
             left,
-            option_y + 55.0,
-            14.0,
+            option_y + t.line_height * 2.3,
+            t.font_medium,
             color_medium,
         );
 
@@ -1090,125 +1091,128 @@ pub fn draw_repair_screen(game_state: &GameState, message: &str) {
         draw_text(
             &format!("3 - Repair All Damage ({})", full_repair_str),
             left,
-            option_y + 75.0,
-            14.0,
+            option_y + t.line_height * 3.1,
+            t.font_medium,
             color_full,
         );
 
         draw_text(
             &format!("Cost per HP: {} cr", cost_per_point),
             left,
-            option_y + 110.0,
-            12.0,
+            option_y + t.line_height * 4.5,
+            t.font_small,
             LIGHTGRAY,
         );
 
         if damage_taken == 0 {
-            draw_text("Ship is fully repaired!", left, option_y + 140.0, 14.0, SKYBLUE);
+            draw_text("Ship is fully repaired!", left, option_y + t.line_height * 5.8, t.font_medium, SKYBLUE);
         }
     }
 
-    let inst_y = screen_height() - 100.0;
-    draw_text("Controls:", 20.0, inst_y, 18.0, LIGHTGRAY);
+    let inst_y = screen_height() - t.header_height * 2.2;
+    draw_text("Controls:", t.margin, inst_y, t.font_medium, LIGHTGRAY);
     draw_text(
         "1 - Repair 10 HP  |  2 - Repair 50 HP  |  3 - Repair All  |  ESC/Q - Back",
-        20.0,
-        inst_y + 25.0,
-        14.0,
+        t.margin,
+        inst_y + t.line_height,
+        t.font_medium,
         LIGHTGRAY,
     );
 
     if !message.is_empty() {
-        let msg_width = measure_text(message, None, 18, 1.0).width;
+        let msg_width = measure_text(message, None, t.font_medium as u16, 1.0).width;
         let msg_x = (screen_width() - msg_width) / 2.0;
         draw_rectangle(
-            msg_x - 10.0,
-            screen_height() / 2.0 + 50.0,
-            msg_width + 20.0,
-            50.0,
+            msg_x - t.padding,
+            screen_height() / 2.0 + t.margin * 2.5,
+            msg_width + t.padding * 2.0,
+            t.line_height * 2.0,
             Color::from_rgba(0, 0, 0, 200),
         );
         let msg_color = if message.contains("Repaired") { GREEN } else { RED };
-        draw_text(message, msg_x, screen_height() / 2.0 + 75.0, 18.0, msg_color);
+        draw_text(message, msg_x, screen_height() / 2.0 + t.margin * 3.8, t.font_medium, msg_color);
     }
 }
 
 pub fn draw_shipyard_screen(game_state: &GameState, selected: usize, message: &str) {
+    let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
 
-    draw_rectangle(0.0, 0.0, screen_width(), 50.0, Color::from_rgba(80, 0, 160, 255));
-    draw_text("Shipyard", 20.0, 25.0, 28.0, WHITE);
+    draw_rectangle(0.0, 0.0, screen_width(), t.header_height, Color::from_rgba(80, 0, 160, 255));
+    draw_text("Shipyard", t.margin, t.header_height * 0.6, t.font_title, WHITE);
     draw_text(
         &format!("Credits: {}", game_state.credits),
-        screen_width() - 200.0,
-        25.0,
-        18.0,
+        screen_width() - t.margin * 10.0,
+        t.header_height * 0.6,
+        t.font_medium,
         GOLD,
     );
 
-    draw_navigation_tabs(false, false, true, false, 50.0);
+    draw_navigation_tabs(false, false, true, false, t.header_height);
 
     let upgrades = get_available_upgrades(game_state);
 
     if upgrades.is_empty() {
         draw_text(
             "No upgrades available at this tech level",
-            screen_width() / 2.0 - 180.0,
+            screen_width() / 2.0 - 180.0 * t.scale,
             screen_height() / 2.0,
-            20.0,
+            t.font_large,
             LIGHTGRAY,
         );
     } else {
-        let y_start = 110.0;
-        let name_col = 40.0;
-        let desc_col = 250.0;
-        let cost_col = screen_width() - 150.0;
+        let y_start = t.header_height + t.tab_height + t.margin;
+        let list_width = screen_width() - t.margin * 2.0;
+        let name_col = t.margin * 2.0;
+        let desc_col = t.margin + list_width * 0.25;
+        let cost_col = t.margin + list_width * 0.80;
 
-        draw_text("Upgrade", name_col, y_start, 16.0, LIGHTGRAY);
-        draw_text("Description", desc_col, y_start, 14.0, LIGHTGRAY);
-        draw_text("Cost", cost_col, y_start, 16.0, LIGHTGRAY);
+        draw_text("Upgrade", name_col, y_start, t.font_medium, LIGHTGRAY);
+        draw_text("Description", desc_col, y_start, t.font_small, LIGHTGRAY);
+        draw_text("Cost", cost_col, y_start, t.font_medium, LIGHTGRAY);
 
+        let row_height = t.row_height * 2.4;
         for (i, (upgrade, cost)) in upgrades.iter().enumerate() {
-            let y = y_start + 40.0 + (i as f32 * 60.0);
+            let y = y_start + t.line_height * 1.5 + (i as f32 * row_height);
 
             if i == selected {
                 draw_rectangle(
-                    15.0,
-                    y - 20.0,
-                    screen_width() - 30.0,
-                    55.0,
+                    t.padding,
+                    y - t.padding * 2.0,
+                    screen_width() - t.padding * 2.0,
+                    row_height - t.padding,
                     Color::from_rgba(50, 50, 100, 128),
                 );
             }
 
             let color = if i == selected { YELLOW } else { WHITE };
 
-            draw_text(upgrade.name(), name_col, y, 16.0, color);
-            draw_text_with_limits(upgrade.description(), desc_col, y, 12.0, LIGHTGRAY, 350.0);
+            draw_text(upgrade.name(), name_col, y, t.font_medium, color);
+            draw_text_with_limits(upgrade.description(), desc_col, y, t.font_small, LIGHTGRAY, list_width * 0.50);
 
             let cost_color = if game_state.credits >= *cost { GREEN } else { RED };
-            draw_text(&format!("{} cr", cost), cost_col, y, 16.0, cost_color);
+            draw_text(&format!("{} cr", cost), cost_col, y, t.font_medium, cost_color);
         }
     }
 
-    let inst_y = screen_height() - 100.0;
-    draw_text("Controls:", 20.0, inst_y, 18.0, LIGHTGRAY);
+    let inst_y = screen_height() - t.header_height * 2.2;
+    draw_text("Controls:", t.margin, inst_y, t.font_medium, LIGHTGRAY);
     draw_text(
         "↑↓ - Select  |  ENTER/P - Purchase  |  ESC/Q - Back",
-        20.0,
-        inst_y + 25.0,
-        14.0,
+        t.margin,
+        inst_y + t.line_height,
+        t.font_medium,
         LIGHTGRAY,
     );
 
     if !message.is_empty() {
-        let msg_width = measure_text(message, None, 18, 1.0).width;
+        let msg_width = measure_text(message, None, t.font_medium as u16, 1.0).width;
         let msg_x = (screen_width() - msg_width) / 2.0;
         draw_rectangle(
-            msg_x - 10.0,
-            screen_height() / 2.0 + 50.0,
-            msg_width + 20.0,
-            50.0,
+            msg_x - t.padding,
+            screen_height() / 2.0 + t.margin * 2.5,
+            msg_width + t.padding * 2.0,
+            t.line_height * 2.0,
             Color::from_rgba(0, 0, 0, 200),
         );
         let msg_color = if message.contains("Installed") || message.contains("upgraded") {
@@ -1216,30 +1220,31 @@ pub fn draw_shipyard_screen(game_state: &GameState, selected: usize, message: &s
         } else {
             RED
         };
-        draw_text(message, msg_x, screen_height() / 2.0 + 75.0, 18.0, msg_color);
+        draw_text(message, msg_x, screen_height() / 2.0 + t.margin * 3.8, t.font_medium, msg_color);
     }
 }
 
 pub fn draw_trading_screen(game_state: &GameState, selected: usize, message: &str) {
+    let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
 
-    draw_rectangle(0.0, 0.0, screen_width(), 45.0, Color::from_rgba(20, 30, 60, 255));
+    draw_rectangle(0.0, 0.0, screen_width(), t.header_height, Color::from_rgba(20, 30, 60, 255));
 
     draw_text(
         &format!("Trading - {}", game_state.current_system_name()),
-        20.0,
-        28.0,
-        24.0,
+        t.margin,
+        t.header_height * 0.62,
+        t.font_title,
         GOLD,
     );
 
-    draw_navigation_tabs(true, true, false, false, 45.0);
+    draw_navigation_tabs(true, true, false, false, t.header_height);
 
     draw_text(
         &format!("Credits: {} cr", game_state.credits),
-        20.0,
-        85.0,
-        18.0,
+        t.margin,
+        t.header_height + t.tab_height + t.line_height,
+        t.font_large,
         WHITE,
     );
 
@@ -1249,22 +1254,29 @@ pub fn draw_trading_screen(game_state: &GameState, selected: usize, message: &st
             game_state.ship.total_cargo(),
             game_state.ship.cargo_bays_available() + game_state.ship.total_cargo()
         ),
-        20.0,
-        110.0,
-        18.0,
+        t.margin,
+        t.header_height + t.tab_height + t.line_height * 2.0,
+        t.font_large,
         WHITE,
     );
 
-    let y_start = 145.0;
-    draw_text("Good", 20.0, y_start, 16.0, LIGHTGRAY);
-    draw_text("Price", 180.0, y_start, 16.0, LIGHTGRAY);
-    draw_text("Avail", 260.0, y_start, 16.0, LIGHTGRAY);
-    draw_text("Cargo", 340.0, y_start, 16.0, LIGHTGRAY);
-    draw_text("Max", 420.0, y_start, 16.0, LIGHTGRAY);
+    let y_start = t.header_height + t.tab_height + t.line_height * 3.0;
+    let list_w = screen_width() * 0.6; // Leave room for info panel
+    let col_good = t.margin;
+    let col_price = t.margin + list_w * 0.30;
+    let col_avail = t.margin + list_w * 0.48;
+    let col_cargo = t.margin + list_w * 0.64;
+    let col_max = t.margin + list_w * 0.80;
+    
+    draw_text("Good", col_good, y_start, t.font_medium + 2.0, LIGHTGRAY);
+    draw_text("Price", col_price, y_start, t.font_medium + 2.0, LIGHTGRAY);
+    draw_text("Avail", col_avail, y_start, t.font_medium + 2.0, LIGHTGRAY);
+    draw_text("Cargo", col_cargo, y_start, t.font_medium + 2.0, LIGHTGRAY);
+    draw_text("Max", col_max, y_start, t.font_medium + 2.0, LIGHTGRAY);
 
     let system_id = game_state.current_system_id;
     for i in 0..10 {
-        let y = y_start + 35.0 + (i as f32 * 25.0);
+        let y = y_start + t.line_height * 1.5 + (i as f32 * t.row_height);
         let good = TradeGood::from_index(i);
         let price = get_buy_price(game_state, good);
         let available = game_state.solar_systems[system_id].qty[i];
@@ -1274,26 +1286,26 @@ pub fn draw_trading_screen(game_state: &GameState, selected: usize, message: &st
         let color = if i == selected { YELLOW } else { WHITE };
         if i == selected {
             draw_rectangle(
-                15.0,
-                y - 18.0,
-                screen_width() - 30.0,
-                23.0,
+                t.margin - t.padding * 0.5,
+                y - t.row_height * 0.7,
+                list_w,
+                t.row_height * 0.9,
                 Color::from_rgba(50, 50, 100, 128),
             );
         }
 
-        draw_text(good.name(), 20.0, y, 16.0, color);
-        draw_text(&format!("{} cr", price), 180.0, y, 16.0, color);
-        draw_text(&format!("{}", available), 260.0, y, 16.0, color);
-        draw_text(&format!("{}", in_hold), 340.0, y, 16.0, color);
-        draw_text(&format!("{}", max), 420.0, y, 16.0, color);
+        draw_text(good.name(), col_good, y, t.font_medium, color);
+        draw_text(&format!("{} cr", price), col_price, y, t.font_medium, color);
+        draw_text(&format!("{}", available), col_avail, y, t.font_medium, color);
+        draw_text(&format!("{}", in_hold), col_cargo, y, t.font_medium, color);
+        draw_text(&format!("{}", max), col_max, y, t.font_medium, color);
     }
 
-    let panel_x = 520.0;
-    let panel_w = screen_width() - panel_x - 20.0;
-    if panel_w > 120.0 {
-        let panel_y = y_start - 10.0;
-        let panel_h = 220.0;
+    let panel_x = t.margin + list_w + t.margin;
+    let panel_w = screen_width() - panel_x - t.margin;
+    if panel_w > 120.0 * t.scale {
+        let panel_y = y_start - t.padding;
+        let panel_h = t.row_height * 9.0;
         draw_rectangle(
             panel_x,
             panel_y,
@@ -1311,14 +1323,14 @@ pub fn draw_trading_screen(game_state: &GameState, selected: usize, message: &st
         );
 
         let good = TradeGood::from_index(selected);
-        draw_text("Selected Good", panel_x + 10.0, panel_y + 24.0, 16.0, SKYBLUE);
-        draw_text(good.name(), panel_x + 10.0, panel_y + 48.0, 16.0, WHITE);
+        draw_text("Selected Good", panel_x + t.padding, panel_y + t.line_height, t.font_medium, SKYBLUE);
+        draw_text(good.name(), panel_x + t.padding, panel_y + t.line_height * 2.0, t.font_medium, WHITE);
 
         let history = &game_state.solar_systems[system_id].price_history[selected];
-        draw_text("Price history", panel_x + 10.0, panel_y + 78.0, 14.0, LIGHTGRAY);
+        draw_text("Price history", panel_x + t.padding, panel_y + t.line_height * 3.2, t.font_medium, LIGHTGRAY);
 
         if history.is_empty() {
-            draw_text("No history yet.", panel_x + 10.0, panel_y + 102.0, 14.0, WHITE);
+            draw_text("No history yet.", panel_x + t.padding, panel_y + t.line_height * 4.2, t.font_medium, WHITE);
         } else {
             let history_text = history
                 .iter()
@@ -1327,11 +1339,11 @@ pub fn draw_trading_screen(game_state: &GameState, selected: usize, message: &st
                 .join(" → ");
             draw_text_with_limits(
                 &history_text,
-                panel_x + 10.0,
-                panel_y + 102.0,
-                14.0,
+                panel_x + t.padding,
+                panel_y + t.line_height * 4.2,
+                t.font_medium,
                 WHITE,
-                panel_w - 20.0,
+                panel_w - t.padding * 2.0,
             );
 
             if history.len() >= 2 {
@@ -1346,37 +1358,38 @@ pub fn draw_trading_screen(game_state: &GameState, selected: usize, message: &st
                 };
                 draw_text(
                     &format!("Trend: {}", trend),
-                    panel_x + 10.0,
-                    panel_y + 150.0,
-                    14.0,
+                    panel_x + t.padding,
+                    panel_y + t.line_height * 6.0,
+                    t.font_medium,
                     GOLD,
                 );
             }
         }
     }
 
-    let inst_y = screen_height() - 100.0;
-    draw_text("Controls:", 20.0, inst_y, 18.0, LIGHTGRAY);
+    let inst_y = screen_height() - t.header_height * 2.2;
+    draw_text("Controls:", t.margin, inst_y, t.font_large, LIGHTGRAY);
     draw_text(
         "↑↓ - Select  |  B - Buy 1  |  5 - Buy 5  |  S - Sell 1  |  A - Sell All",
-        20.0,
-        inst_y + 25.0,
-        14.0,
+        t.margin,
+        inst_y + t.line_height,
+        t.font_medium,
         LIGHTGRAY,
     );
-    draw_text("ESC/Q - Exit Trading", 20.0, inst_y + 50.0, 14.0, LIGHTGRAY);
+    draw_text("ESC/Q - Exit Trading", t.margin, inst_y + t.line_height * 2.0, t.font_medium, LIGHTGRAY);
 
     if !message.is_empty() {
-        let msg_width = measure_text(message, None, 20, 1.0).width;
+        let msg_size = t.font_large + 2.0;
+        let msg_width = measure_text(message, None, msg_size as u16, 1.0).width;
         let msg_x = (screen_width() - msg_width) / 2.0;
         draw_rectangle(
-            msg_x - 10.0,
-            screen_height() / 2.0 - 30.0,
-            msg_width + 20.0,
-            50.0,
+            msg_x - t.padding,
+            screen_height() / 2.0 - t.line_height * 1.5,
+            msg_width + t.padding * 2.0,
+            t.line_height * 2.5,
             Color::from_rgba(0, 0, 0, 200),
         );
-        draw_text(message, msg_x, screen_height() / 2.0, 20.0, GREEN);
+        draw_text(message, msg_x, screen_height() / 2.0, msg_size, GREEN);
     }
 }
 
@@ -1386,11 +1399,12 @@ pub fn draw_system_info_screen(
     newspaper_unlocked: bool,
     message: &str,
 ) {
+    let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
 
-    draw_rectangle(0.0, 0.0, screen_width(), 40.0, Color::from_rgba(80, 0, 160, 255));
-    draw_text("System Info", 20.0, 20.0, 24.0, WHITE);
-    draw_text("I", screen_width() - 40.0, 20.0, 20.0, WHITE);
+    draw_rectangle(0.0, 0.0, screen_width(), t.header_height * 0.9, Color::from_rgba(80, 0, 160, 255));
+    draw_text("System Info", t.margin, t.header_height * 0.5, t.font_title, WHITE);
+    draw_text("I", screen_width() - t.margin * 2.0, t.header_height * 0.5, t.font_large, WHITE);
 
     let current_system = &game_state.solar_systems[game_state.current_system_id];
     let tech_names = [
@@ -1478,112 +1492,113 @@ pub fn draw_system_info_screen(
         _ => "None",
     };
 
-    let content_top = 55.0;
-    let content_bottom = screen_height() - 90.0;
+    let content_top = t.header_height;
+    let content_bottom = screen_height() - t.header_height * 2.0;
     let content_h = content_bottom - content_top;
     draw_rectangle(
-        10.0,
+        t.padding,
         content_top,
-        screen_width() - 20.0,
+        screen_width() - t.padding * 2.0,
         content_h,
         Color::from_rgba(18, 25, 45, 255),
     );
     draw_rectangle_lines(
-        10.0,
+        t.padding,
         content_top,
-        screen_width() - 20.0,
+        screen_width() - t.padding * 2.0,
         content_h,
-        1.0,
+        (1.0 * t.scale).clamp(1.0, 2.0),
         Color::from_rgba(80, 80, 120, 255),
     );
 
-    let left_x = 30.0;
-    let right_x = screen_width() / 2.0 + 10.0;
-    let panel_w = screen_width() / 2.0 - 40.0;
-    let panel_h = content_h - 20.0;
-    let panel_y = content_top + 10.0;
+    let left_x = t.margin * 1.5;
+    let right_x = screen_width() / 2.0 + t.padding;
+    let panel_w = screen_width() / 2.0 - t.margin * 2.0;
+    let panel_h = content_h - t.padding * 2.0;
+    let panel_y = content_top + t.padding;
 
     draw_rectangle(
-        left_x - 10.0,
+        left_x - t.padding,
         panel_y,
         panel_w,
         panel_h,
         Color::from_rgba(12, 18, 34, 255),
     );
     draw_rectangle(
-        right_x - 10.0,
+        right_x - t.padding,
         panel_y,
         panel_w,
         panel_h,
         Color::from_rgba(12, 18, 34, 255),
     );
-    draw_text("Overview", left_x, panel_y + 24.0, 18.0, SKYBLUE);
-    draw_text("Market Snapshot", right_x, panel_y + 24.0, 18.0, SKYBLUE);
+    draw_text("Overview", left_x, panel_y + t.line_height, t.font_medium, SKYBLUE);
+    draw_text("Market Snapshot", right_x, panel_y + t.line_height, t.font_medium, SKYBLUE);
 
-    let line_height = 28.0;
-    let y_start = panel_y + 60.0;
-    draw_text("Name:", left_x, y_start, 16.0, LIGHTGRAY);
-    draw_text(&current_system.name, left_x + 160.0, y_start, 16.0, WHITE);
+    let line_height = t.line_height * 1.1;
+    let y_start = panel_y + t.line_height * 2.5;
+    let label_offset = t.margin * 8.0;
+    draw_text("Name:", left_x, y_start, t.font_medium, LIGHTGRAY);
+    draw_text(&current_system.name, left_x + label_offset, y_start, t.font_medium, WHITE);
 
-    draw_text("Size:", left_x, y_start + line_height, 16.0, LIGHTGRAY);
-    draw_text(size_name, left_x + 160.0, y_start + line_height, 16.0, WHITE);
+    draw_text("Size:", left_x, y_start + line_height, t.font_medium, LIGHTGRAY);
+    draw_text(size_name, left_x + label_offset, y_start + line_height, t.font_medium, WHITE);
 
-    draw_text("Tech Level:", left_x, y_start + line_height * 2.0, 16.0, LIGHTGRAY);
+    draw_text("Tech Level:", left_x, y_start + line_height * 2.0, t.font_medium, LIGHTGRAY);
     draw_text(
         tech_name,
-        left_x + 160.0,
+        left_x + label_offset,
         y_start + line_height * 2.0,
-        16.0,
+        t.font_medium,
         WHITE,
     );
 
-    draw_text("Government:", left_x, y_start + line_height * 3.0, 16.0, LIGHTGRAY);
+    draw_text("Government:", left_x, y_start + line_height * 3.0, t.font_medium, LIGHTGRAY);
     draw_text(
         politics_name,
-        left_x + 160.0,
+        left_x + label_offset,
         y_start + line_height * 3.0,
-        16.0,
+        t.font_medium,
         WHITE,
     );
 
-    draw_text("Resources:", left_x, y_start + line_height * 4.0, 16.0, LIGHTGRAY);
+    draw_text("Resources:", left_x, y_start + line_height * 4.0, t.font_medium, LIGHTGRAY);
     draw_text(
         resource_name,
-        left_x + 160.0,
+        left_x + label_offset,
         y_start + line_height * 4.0,
-        16.0,
+        t.font_medium,
         WHITE,
     );
 
-    draw_text("Coordinates:", left_x, y_start + line_height * 5.0, 16.0, LIGHTGRAY);
+    draw_text("Coordinates:", left_x, y_start + line_height * 5.0, t.font_medium, LIGHTGRAY);
     draw_text(
         &format!("{}, {}", current_system.x, current_system.y),
-        left_x + 160.0,
+        left_x + label_offset,
         y_start + line_height * 5.0,
-        16.0,
+        t.font_medium,
         WHITE,
     );
 
-    draw_text("Visited:", left_x, y_start + line_height * 6.0, 16.0, LIGHTGRAY);
+    draw_text("Visited:", left_x, y_start + line_height * 6.0, t.font_medium, LIGHTGRAY);
     draw_text(
         visited_label,
-        left_x + 160.0,
+        left_x + label_offset,
         y_start + line_height * 6.0,
-        16.0,
+        t.font_medium,
         WHITE,
     );
 
-    draw_text("Special Event:", left_x, y_start + line_height * 7.0, 16.0, LIGHTGRAY);
+    draw_text("Special Event:", left_x, y_start + line_height * 7.0, t.font_medium, LIGHTGRAY);
     draw_text(
         special_event_label,
-        left_x + 160.0,
+        left_x + label_offset,
         y_start + line_height * 7.0,
-        16.0,
+        t.font_medium,
         WHITE,
     );
 
-    let market_y = panel_y + 60.0;
-    draw_text("Top Price Moves", right_x, market_y, 16.0, LIGHTGRAY);
+    let market_y = panel_y + t.line_height * 2.5;
+    draw_text("Top Price Moves", right_x, market_y, t.font_medium, LIGHTGRAY);
 
     let mut modifiers: Vec<(usize, i32)> = (0..10)
         .map(|good_idx| {
@@ -1593,6 +1608,7 @@ pub fn draw_system_info_screen(
         })
         .collect();
     modifiers.sort_by(|a, b| b.1.abs().cmp(&a.1.abs()));
+    let item_line_height = t.line_height;
     for (idx, (good_idx, delta)) in modifiers.into_iter().take(3).enumerate() {
         let label = TradeGood::from_index(good_idx).name().to_string();
         let sign = if delta >= 0 { "+" } else { "" };
@@ -1600,13 +1616,13 @@ pub fn draw_system_info_screen(
         draw_text(
             &format!("{}: {}{}", label, sign, delta),
             right_x,
-            market_y + 28.0 + (idx as f32 * 24.0),
-            16.0,
+            market_y + t.line_height + (idx as f32 * item_line_height),
+            t.font_medium,
             color,
         );
     }
 
-    draw_text("Low Stock", right_x, market_y + 120.0, 16.0, LIGHTGRAY);
+    draw_text("Low Stock", right_x, market_y + t.line_height * 5.0, t.font_medium, LIGHTGRAY);
     let mut stocks: Vec<(usize, i32)> = current_system.qty.iter().copied().enumerate().collect();
     stocks.sort_by(|a, b| a.1.cmp(&b.1));
     for (idx, (good_idx, qty)) in stocks.into_iter().take(3).enumerate() {
@@ -1614,43 +1630,43 @@ pub fn draw_system_info_screen(
         draw_text(
             &format!("{}: {}", label, qty),
             right_x,
-            market_y + 148.0 + (idx as f32 * 24.0),
-            16.0,
+            market_y + t.line_height * 6.0 + (idx as f32 * item_line_height),
+            t.font_medium,
             WHITE,
         );
     }
 
-    draw_text("Local News", right_x, market_y + 220.0, 16.0, LIGHTGRAY);
+    draw_text("Local News", right_x, market_y + t.line_height * 9.5, t.font_medium, LIGHTGRAY);
     if current_system.news.is_empty() {
-        draw_text("No notable news.", right_x, market_y + 248.0, 14.0, WHITE);
+        draw_text("No notable news.", right_x, market_y + t.line_height * 10.5, t.font_small, WHITE);
     } else if newspaper_unlocked {
         for (idx, line) in current_system.news.iter().take(3).enumerate() {
             draw_text_with_limits(
                 line,
                 right_x,
-                market_y + 248.0 + (idx as f32 * 22.0),
-                14.0,
+                market_y + t.line_height * 10.5 + (idx as f32 * t.line_height * 0.9),
+                t.font_small,
                 WHITE,
-                panel_w - 20.0,
+                panel_w - t.padding * 2.0,
             );
         }
     } else {
         let preview = &current_system.news[0];
-        draw_text_with_limits(preview, right_x, market_y + 248.0, 14.0, WHITE, panel_w - 20.0);
+        draw_text_with_limits(preview, right_x, market_y + t.line_height * 10.5, t.font_small, WHITE, panel_w - t.padding * 2.0);
         draw_text(
             "Buy newspaper for full report.",
             right_x,
-            market_y + 270.0,
-            12.0,
+            market_y + t.line_height * 11.5,
+            t.font_small,
             GRAY,
         );
     }
 
     if show_newspaper {
-        let dialog_width = 500.0;
-        let dialog_height = 180.0;
+        let dialog_width = (500.0 * t.scale).clamp(350.0, 700.0);
+        let dialog_height = (180.0 * t.scale).clamp(140.0, 250.0);
         let dialog_x = (screen_width() - dialog_width) / 2.0;
-        let dialog_y = screen_height() / 2.0 - 50.0;
+        let dialog_y = screen_height() / 2.0 - dialog_height / 3.0;
 
         draw_rectangle(
             dialog_x,
@@ -1667,110 +1683,118 @@ pub fn draw_system_info_screen(
             Color::from_rgba(200, 200, 255, 255),
         );
 
-        draw_text("Buy Newspaper?", dialog_x + 20.0, dialog_y + 20.0, 18.0, BLACK);
+        draw_text("Buy Newspaper?", dialog_x + t.padding * 2.0, dialog_y + t.line_height, t.font_medium, BLACK);
         draw_text(
             "Local newspaper costs 1 credit.",
-            dialog_x + 20.0,
-            dialog_y + 50.0,
-            14.0,
+            dialog_x + t.padding * 2.0,
+            dialog_y + t.line_height * 2.2,
+            t.font_small,
             BLACK,
         );
         draw_text(
             "Unlock full market report.",
-            dialog_x + 20.0,
-            dialog_y + 70.0,
-            14.0,
+            dialog_x + t.padding * 2.0,
+            dialog_y + t.line_height * 3.0,
+            t.font_small,
             BLACK,
         );
 
-        draw_rectangle(dialog_x + 50.0, dialog_y + 110.0, 120.0, 40.0, WHITE);
-        draw_text("Buy (B)", dialog_x + 70.0, dialog_y + 125.0, 14.0, BLACK);
+        let btn_w = (120.0 * t.scale).clamp(90.0, 160.0);
+        let btn_h = (40.0 * t.scale).clamp(30.0, 55.0);
+        let btn_y = dialog_y + dialog_height - btn_h - t.padding * 2.0;
+        draw_rectangle(dialog_x + t.padding * 5.0, btn_y, btn_w, btn_h, WHITE);
+        draw_text("Buy (B)", dialog_x + t.padding * 7.0, btn_y + btn_h * 0.6, t.font_small, BLACK);
 
-        draw_rectangle(dialog_x + 250.0, dialog_y + 110.0, 120.0, 40.0, WHITE);
-        draw_text("Cancel (C)", dialog_x + 265.0, dialog_y + 125.0, 14.0, BLACK);
+        draw_rectangle(dialog_x + dialog_width - btn_w - t.padding * 5.0, btn_y, btn_w, btn_h, WHITE);
+        draw_text("Cancel (C)", dialog_x + dialog_width - btn_w - t.padding * 3.5, btn_y + btn_h * 0.6, t.font_small, BLACK);
     }
 
-    let inst_y = screen_height() - 60.0;
-    draw_text("Controls:", 20.0, inst_y, 14.0, LIGHTGRAY);
+    let inst_y = screen_height() - t.header_height * 1.3;
+    draw_text("Controls:", t.margin, inst_y, t.font_small, LIGHTGRAY);
     if !show_newspaper {
         draw_text(
             "N - Buy Newspaper  |  ESC/Q - Back",
-            20.0,
-            inst_y + 20.0,
-            12.0,
+            t.margin,
+            inst_y + t.line_height * 0.8,
+            t.font_small,
             LIGHTGRAY,
         );
     } else {
-        draw_text("B - Buy  |  C - Cancel", 20.0, inst_y + 20.0, 12.0, LIGHTGRAY);
+        draw_text("B - Buy  |  C - Cancel", t.margin, inst_y + t.line_height * 0.8, t.font_small, LIGHTGRAY);
     }
 
     if !message.is_empty() {
-        draw_text(message, 20.0, screen_height() - 30.0, 14.0, GREEN);
+        draw_text(message, t.margin, screen_height() - t.padding, t.font_medium, GREEN);
     }
 }
 
 pub fn draw_encounter_screen(encounter: &Encounter, message: &str) {
+    let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
 
-    draw_rectangle(0.0, 0.0, screen_width(), 50.0, Color::from_rgba(80, 0, 160, 255));
-    draw_text("Encounter", 20.0, 25.0, 28.0, WHITE);
-    draw_text("!", screen_width() - 40.0, 25.0, 28.0, YELLOW);
+    draw_rectangle(0.0, 0.0, screen_width(), t.header_height, Color::from_rgba(80, 0, 160, 255));
+    draw_text("Encounter", t.margin, t.header_height * 0.6, t.font_title, WHITE);
+    draw_text("!", screen_width() - t.margin * 2.0, t.header_height * 0.6, t.font_title, YELLOW);
 
     draw_rectangle(
-        10.0,
-        60.0,
-        screen_width() - 20.0,
-        screen_height() - 130.0,
+        t.padding,
+        t.header_height + t.padding,
+        screen_width() - t.padding * 2.0,
+        screen_height() - t.header_height - t.padding * 2.0 - t.button_height - t.margin * 2.0,
         Color::from_rgba(240, 240, 250, 255),
     );
 
-    let ship_y = 140.0;
-    let left_ship_x = 100.0;
-    let right_ship_x = screen_width() - 200.0;
+    let ship_y = t.header_height + screen_height() * 0.15;
+    let ship_size = (25.0 * t.scale).clamp(15.0, 40.0);
+    let left_ship_x = screen_width() * 0.15;
+    let right_ship_x = screen_width() * 0.85;
 
     draw_triangle(
-        vec2(left_ship_x, ship_y - 25.0),
-        vec2(left_ship_x - 20.0, ship_y + 25.0),
-        vec2(left_ship_x + 20.0, ship_y + 25.0),
+        vec2(left_ship_x, ship_y - ship_size),
+        vec2(left_ship_x - ship_size * 0.8, ship_y + ship_size),
+        vec2(left_ship_x + ship_size * 0.8, ship_y + ship_size),
         BLUE,
     );
 
     let (red, green, blue) = encounter.get_color_rgb();
     let encounter_color = Color::from_rgba(red, green, blue, 255);
-    draw_circle(right_ship_x, ship_y, 20.0, encounter_color);
-    draw_rectangle(right_ship_x - 15.0, ship_y - 10.0, 30.0, 20.0, encounter_color);
+    draw_circle(right_ship_x, ship_y, ship_size * 0.8, encounter_color);
+    draw_rectangle(right_ship_x - ship_size * 0.6, ship_y - ship_size * 0.4, ship_size * 1.2, ship_size * 0.8, encounter_color);
 
-    draw_circle(screen_width() - 80.0, 100.0, 15.0, YELLOW);
+    let sun_size = (15.0 * t.scale).clamp(10.0, 25.0);
+    draw_circle(screen_width() - t.margin * 4.0, t.header_height + t.margin * 2.5, sun_size, YELLOW);
 
-    let text_x = 40.0;
-    let text_y = 280.0;
-    let max_width = screen_width() - 80.0;
+    let text_x = t.margin * 2.0;
+    let text_y = screen_height() * 0.45;
+    let max_width = screen_width() - t.margin * 4.0;
     draw_text_with_limits(
         &encounter.description,
         text_x,
         text_y,
-        20.0,
+        t.font_large,
         BLACK,
         max_width,
     );
 
-    let button_y = screen_height() - 100.0;
-    let button_width = 140.0;
-    let button_height = 50.0;
-    let button_spacing = 200.0;
+    let button_y = screen_height() - t.button_height - t.margin * 1.5;
+    let button_spacing = t.button_width * 1.5;
 
-    let attack_x = screen_width() / 2.0 - button_spacing / 2.0 - button_width / 2.0;
-    let ignore_x = screen_width() / 2.0 + button_spacing / 2.0 - button_width / 2.0;
+    let attack_x = screen_width() / 2.0 - button_spacing / 2.0 - t.button_width / 2.0;
+    let ignore_x = screen_width() / 2.0 + button_spacing / 2.0 - t.button_width / 2.0;
 
-    draw_rectangle(attack_x, button_y, button_width, button_height, WHITE);
-    draw_rectangle_lines(attack_x, button_y, button_width, button_height, 3.0, BLACK);
-    draw_text("Attack (A)", attack_x + 20.0, button_y + 30.0, 18.0, BLACK);
+    let border_width = (3.0 * t.scale).clamp(2.0, 5.0);
+    let btn_text_offset_x = t.padding * 2.0;
+    let btn_text_offset_y = t.button_height * 0.6;
 
-    draw_rectangle(ignore_x, button_y, button_width, button_height, WHITE);
-    draw_rectangle_lines(ignore_x, button_y, button_width, button_height, 3.0, BLACK);
-    draw_text("Ignore (I)", ignore_x + 20.0, button_y + 30.0, 18.0, BLACK);
+    draw_rectangle(attack_x, button_y, t.button_width, t.button_height, WHITE);
+    draw_rectangle_lines(attack_x, button_y, t.button_width, t.button_height, border_width, BLACK);
+    draw_text("Attack (A)", attack_x + btn_text_offset_x, button_y + btn_text_offset_y, t.font_medium, BLACK);
+
+    draw_rectangle(ignore_x, button_y, t.button_width, t.button_height, WHITE);
+    draw_rectangle_lines(ignore_x, button_y, t.button_width, t.button_height, border_width, BLACK);
+    draw_text("Ignore (I)", ignore_x + btn_text_offset_x, button_y + btn_text_offset_y, t.font_medium, BLACK);
 
     if !message.is_empty() {
-        draw_text(message, 20.0, screen_height() - 25.0, 14.0, GREEN);
+        draw_text(message, t.margin, screen_height() - t.padding, t.font_medium, GREEN);
     }
 }
