@@ -1291,6 +1291,9 @@ async fn main() {
                 if game_state.save_game() {
                     trade_message = "Game saved!".to_string();
                     message_timer = 2.0;
+                } else {
+                    trade_message = "Failed to save game!".to_string();
+                    message_timer = 2.0;
                 }
             }
         }

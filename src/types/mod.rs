@@ -13,6 +13,7 @@ pub use crew::CrewMember;
 pub use trade::TradeGood;
 
 use serde::{Deserialize, Serialize};
+use crate::save;
 
 /// Main game state structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,13 +87,26 @@ impl GameState {
     }
     
     pub fn load_game(&mut self) -> bool {
-        // TODO: Implement save/load
-        false
+        match save::load_game() {
+            Ok(loaded_state) => {
+                *self = loaded_state;
+                true
+            }
+            Err(e) => {
+                eprintln!("Failed to load game: {}", e);
+                false
+            }
+        }
     }
     
     pub fn save_game(&self) -> bool {
-        // TODO: Implement save/load
-        false
+        match save::save_game(self) {
+            Ok(()) => true,
+            Err(e) => {
+                eprintln!("Failed to save game: {}", e);
+                false
+            }
+        }
     }
     
     pub fn current_system(&self) -> &SolarSystem {
