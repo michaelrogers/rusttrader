@@ -9,7 +9,7 @@ mod save;
 mod assets;
 
 use macroquad::prelude::*;
-use types::{GameState, TradeGood};
+use types::{GameState, TradeGood, Ship};
 use assets::{GameAssets, draw_ship};
 use ui::{
     draw_encounter_screen, draw_galactic_chart, draw_main_menu, draw_panel, draw_repair_screen,
@@ -35,6 +35,7 @@ enum GameScreen {
     Repair,
     ShipShop,
     GalacticChart,
+    GameOver,
 }
 
 fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str) {
@@ -132,6 +133,48 @@ fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str)
     }
 }
 
+fn draw_game_over_screen(game_state: &GameState, had_escape_pod: bool) {
+    let t = theme();
+    clear_background(Color::from_rgba(20, 5, 5, 255));
+    
+    let w = screen_width();
+    let h = screen_height();
+    let center_x = w / 2.0;
+    let center_y = h / 2.0;
+    
+    // Title
+    let title = if had_escape_pod { "RESCUED!" } else { "GAME OVER" };
+    let title_color = if had_escape_pod { YELLOW } else { RED };
+    let title_width = measure_text(title, None, t.font_title as u16, 1.0).width;
+    draw_text(title, center_x - title_width / 2.0, center_y - t.line_height * 3.0, t.font_title, title_color);
+    
+    // Message
+    let message = if had_escape_pod {
+        "Your escape pod was recovered by a passing freighter.\nYou've been returned to safety, but lost your ship and cargo."
+    } else {
+        "Your ship was destroyed in the depths of space.\nNo escape pod was found among the wreckage."
+    };
+    
+    let mut y = center_y - t.line_height;
+    for line in message.lines() {
+        let line_width = measure_text(line, None, t.font_medium as u16, 1.0).width;
+        draw_text(line, center_x - line_width / 2.0, y, t.font_medium, LIGHTGRAY);
+        y += t.line_height;
+    }
+    
+    // Stats
+    y += t.line_height;
+    let stats = format!("Days survived: {}  |  Final credits: {}", game_state.days, game_state.credits);
+    let stats_width = measure_text(&stats, None, t.font_small as u16, 1.0).width;
+    draw_text(&stats, center_x - stats_width / 2.0, y, t.font_small, GRAY);
+    
+    // Instructions
+    y = h - t.margin * 4.0;
+    let inst = if had_escape_pod { "Press ENTER to continue..." } else { "Press ENTER to start a new game..." };
+    let inst_width = measure_text(inst, None, t.font_medium as u16, 1.0).width;
+    draw_text(inst, center_x - inst_width / 2.0, y, t.font_medium, WHITE);
+}
+
 #[macroquad::main("Space Trader")]
 async fn main() {
     let mut game_state = GameState::new();
@@ -206,6 +249,7 @@ async fn main() {
     let mut message_timer = 0.0;
     let mut current_encounter: Option<Encounter> = None;
     let mut encounter_message = String::new();
+    let mut death_had_escape_pod = false;  // Track if player had escape pod when they died
     let mut waypoint_system: Option<usize> = None;
     let mut selected_chart_system: Option<usize> = None;
     let mut short_range_pan = vec2(0.0, 0.0);
@@ -268,6 +312,9 @@ async fn main() {
                     newspaper_unlocked,
                     &trade_message,
                 );
+            }
+            GameScreen::GameOver => {
+                draw_game_over_screen(&game_state, death_had_escape_pod);
             }
             GameScreen::Main => {
                 // Main game screen
@@ -474,7 +521,14 @@ async fn main() {
                     encounter_message = result;
                     message_timer = 3.0;
                     current_encounter = None;
-                    current_screen = GameScreen::Main;
+                    
+                    // Check for death
+                    if game_state.ship.hull <= 0 {
+                        death_had_escape_pod = game_state.escape_pod;
+                        current_screen = GameScreen::GameOver;
+                    } else {
+                        current_screen = GameScreen::Main;
+                    }
                 }
                 
                 // Ignore
@@ -484,7 +538,14 @@ async fn main() {
                     trade_message = encounter_message.clone();
                     message_timer = 3.0;
                     current_encounter = None;
-                    current_screen = GameScreen::Main;
+                    
+                    // Check for death
+                    if game_state.ship.hull <= 0 {
+                        death_had_escape_pod = game_state.escape_pod;
+                        current_screen = GameScreen::GameOver;
+                    } else {
+                        current_screen = GameScreen::Main;
+                    }
                 }
                 
                 // Back/Cancel
@@ -968,6 +1029,32 @@ async fn main() {
                 current_screen = GameScreen::Main;
                 trade_message.clear();
                 selected_upgrade = 0;
+            }
+        } else if current_screen == GameScreen::GameOver {
+            // Game Over screen input
+            if is_key_pressed(KeyCode::Enter) {
+                if death_had_escape_pod {
+                    // Escape pod: respawn with minimal resources
+                    // Return to a safe system with a basic ship
+                    game_state.ship = Ship::new_flea(); // Basic ship
+                    game_state.credits = 500; // Minimal starting funds
+                    game_state.insurance = false;
+                    game_state.escape_pod = false;
+                    // Clear any cargo
+                    for i in 0..game_state.ship.cargo.len() {
+                        game_state.ship.cargo[i] = 0;
+                    }
+                    trade_message = "You've been rescued! Starting over with a basic ship.".to_string();
+                    message_timer = 4.0;
+                    current_screen = GameScreen::Main;
+                } else {
+                    // No escape pod: full restart
+                    game_state.start_new_game();
+                    let current_id = game_state.current_system_id;
+                    determine_prices(&mut game_state, current_id);
+                    trade_message.clear();
+                    current_screen = GameScreen::Main;
+                }
             }
         } else {
             // Main screen input
