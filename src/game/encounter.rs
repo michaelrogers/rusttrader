@@ -15,6 +15,7 @@ pub struct Encounter {
     pub encounter_type: EncounterType,
     pub description: String,
     pub ship_name: String,
+    pub ship_type: usize,
     pub distance_clicks: i32,
     #[allow(dead_code)]
     pub system_name: String,
@@ -25,6 +26,7 @@ impl Encounter {
         encounter_type: EncounterType,
         description: String,
         ship_name: String,
+        ship_type: usize,
         distance_clicks: i32,
         system_name: String,
     ) -> Self {
@@ -32,18 +34,55 @@ impl Encounter {
             encounter_type,
             description,
             ship_name,
+            ship_type,
             distance_clicks,
             system_name,
         }
     }
     
+    pub fn icon_name(&self) -> &'static str {
+        match self.encounter_type {
+            EncounterType::Trader => "trader",
+            EncounterType::Pirate => "pirate",
+            EncounterType::Police => "police",
+            EncounterType::SpaceMonster => "alien",
+        }
+    }
+
     pub fn get_color_rgb(&self) -> (u8, u8, u8) {
         match self.encounter_type {
-            EncounterType::Trader => (0, 100, 200),      // Blue
-            EncounterType::Pirate => (200, 0, 0),        // Red
-            EncounterType::Police => (0, 150, 0),        // Green
-            EncounterType::SpaceMonster => (150, 0, 150), // Purple
+            EncounterType::Trader => (0, 100, 200),
+            EncounterType::Pirate => (200, 0, 0),
+            EncounterType::Police => (0, 150, 0),
+            EncounterType::SpaceMonster => (150, 0, 150),
         }
+    }
+
+    pub fn ship_type_name(&self) -> &'static str {
+        use crate::types::ship::SHIP_TYPES;
+        // Extra ships beyond SHIP_TYPES array (indices 10-14)
+        const EXTRA_SHIP_NAMES: &[&str] = &["Monster", "Dragonfly", "Mantis", "Scarab", "Bottle"];
+        if self.ship_type < SHIP_TYPES.len() {
+            SHIP_TYPES[self.ship_type].name
+        } else if self.ship_type - SHIP_TYPES.len() < EXTRA_SHIP_NAMES.len() {
+            EXTRA_SHIP_NAMES[self.ship_type - SHIP_TYPES.len()]
+        } else {
+            "Flea"
+        }
+    }
+}
+
+/// Map encounter type to an appropriate ship type index
+fn encounter_ship_type(encounter_type: &EncounterType, seed: u64) -> usize {
+    match encounter_type {
+        // Traders use purchasable ships (indices 0-9)
+        EncounterType::Trader => (seed % 10) as usize,
+        // Pirates bias toward heavier ships (indices 4-9)
+        EncounterType::Pirate => 4 + (seed % 6) as usize,
+        // Police use mid-range ships (indices 2-7)
+        EncounterType::Police => 2 + (seed % 6) as usize,
+        // Space monster is always index 10
+        EncounterType::SpaceMonster => 10,
     }
 }
 
@@ -80,11 +119,13 @@ pub fn check_for_encounter(game_state: &GameState) -> Option<Encounter> {
         let system = &game_state.solar_systems[game_state.current_system_id];
         
         let (description, ship_name) = generate_encounter_description(&encounter_type, &system.name);
+        let ship_type_idx = encounter_ship_type(&encounter_type, seed);
         
         Some(Encounter::new(
             encounter_type,
             description,
             ship_name,
+            ship_type_idx,
             distance,
             system.name.clone(),
         ))

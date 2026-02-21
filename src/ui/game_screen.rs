@@ -1,5 +1,6 @@
 // In-game UI screens
 
+use crate::assets::{GameAssets, draw_ship, draw_icon, draw_system_marker};
 use crate::game::encounter::Encounter;
 use crate::game::pricing::get_buy_price;
 use crate::game::repair::{
@@ -306,6 +307,7 @@ fn draw_short_range_chart(
     panel_y: f32,
     panel_w: f32,
     panel_h: f32,
+    assets: Option<&GameAssets>,
 ) -> Option<ShortRangeChartAction> {
     let t = theme();
     let bg_color = Color::from_rgba(12, 18, 34, 255); // Solid bg for masking
@@ -381,7 +383,26 @@ fn draw_short_range_chart(
 
         // Larger markers for better visibility
         let marker_r = if is_current { t.system_marker_size * 0.7 } else { t.system_marker_size * 0.5 };
-        draw_circle(px, py, marker_r, color);
+        let marker_size = marker_r * 2.0;
+        
+        // Use sprite markers if available, else fall back to circles
+        let mut drew_sprite = false;
+        if let Some(assets) = assets {
+            let marker_name = if is_current {
+                if system.visited { "current_visited_system" } else { "current_system" }
+            } else if system.visited {
+                "visited_short_range_system"
+            } else {
+                "system_short_range"
+            };
+            if assets.get_ui(marker_name).is_some() {
+                draw_system_marker(assets, marker_name, px, py, marker_size, color);
+                drew_sprite = true;
+            }
+        }
+        if !drew_sprite {
+            draw_circle(px, py, marker_r, color);
+        }
         if is_selected {
             draw_circle_lines(px, py, marker_r + 3.0 * t.scale, 2.5, Color::from_rgba(255, 230, 150, 220));
         }
@@ -921,6 +942,7 @@ pub fn draw_warp_screen(
     waypoint_system: Option<usize>,
     selected_chart_system: Option<usize>,
     short_pan: Vec2,
+    assets: Option<&GameAssets>,
 ) -> Option<ShortRangeChartAction> {
     let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
@@ -974,6 +996,7 @@ pub fn draw_warp_screen(
         chart_y,
         chart_w,
         chart_h,
+        assets,
     );
 
     if systems.is_empty() {
@@ -1953,13 +1976,20 @@ pub fn draw_system_info_screen(
     }
 }
 
-pub fn draw_encounter_screen(encounter: &Encounter, message: &str) {
+pub fn draw_encounter_screen(encounter: &Encounter, message: &str, assets: Option<&GameAssets>, player_ship_type: usize) {
     let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
 
     draw_rectangle(0.0, 0.0, screen_width(), t.header_height, Color::from_rgba(80, 0, 160, 255));
     draw_text("Encounter", t.margin, t.header_height * 0.6, t.font_title, WHITE);
-    draw_text("!", screen_width() - t.margin * 2.0, t.header_height * 0.6, t.font_title, YELLOW);
+    
+    // Show encounter icon in header
+    if let Some(assets) = assets {
+        let icon_scale = (2.5 * t.scale).clamp(2.0, 4.0);
+        draw_icon(assets, encounter.icon_name(), screen_width() - t.margin * 3.0, t.header_height * 0.2, icon_scale);
+    } else {
+        draw_text("!", screen_width() - t.margin * 2.0, t.header_height * 0.6, t.font_title, YELLOW);
+    }
 
     draw_rectangle(
         t.padding,
@@ -1973,18 +2003,47 @@ pub fn draw_encounter_screen(encounter: &Encounter, message: &str) {
     let ship_size = (25.0 * t.scale).clamp(15.0, 40.0);
     let left_ship_x = screen_width() * 0.15;
     let right_ship_x = screen_width() * 0.85;
+    let sprite_scale = (3.0 * t.scale).clamp(2.0, 5.0);
 
-    draw_triangle(
-        vec2(left_ship_x, ship_y - ship_size),
-        vec2(left_ship_x - ship_size * 0.8, ship_y + ship_size),
-        vec2(left_ship_x + ship_size * 0.8, ship_y + ship_size),
-        BLUE,
-    );
+    // Player ship (left side)
+    if let Some(assets) = assets {
+        let player_name = crate::types::ship::SHIP_TYPES[player_ship_type].name;
+        if let Some(tex) = assets.get_ship(player_name, false, false) {
+            let w = tex.width() * sprite_scale;
+            let h = tex.height() * sprite_scale;
+            draw_texture_ex(tex, left_ship_x - w / 2.0, ship_y - h / 2.0, WHITE,
+                DrawTextureParams { dest_size: Some(vec2(w, h)), ..Default::default() });
+        } else {
+            draw_triangle(vec2(left_ship_x, ship_y - ship_size), vec2(left_ship_x - ship_size * 0.8, ship_y + ship_size), vec2(left_ship_x + ship_size * 0.8, ship_y + ship_size), BLUE);
+        }
+    } else {
+        draw_triangle(vec2(left_ship_x, ship_y - ship_size), vec2(left_ship_x - ship_size * 0.8, ship_y + ship_size), vec2(left_ship_x + ship_size * 0.8, ship_y + ship_size), BLUE);
+    }
 
-    let (red, green, blue) = encounter.get_color_rgb();
-    let encounter_color = Color::from_rgba(red, green, blue, 255);
-    draw_circle(right_ship_x, ship_y, ship_size * 0.8, encounter_color);
-    draw_rectangle(right_ship_x - ship_size * 0.6, ship_y - ship_size * 0.4, ship_size * 1.2, ship_size * 0.8, encounter_color);
+    // Enemy ship (right side)
+    if let Some(assets) = assets {
+        let enemy_name = encounter.ship_type_name();
+        if let Some(tex) = assets.get_ship(enemy_name, false, false) {
+            let w = tex.width() * sprite_scale;
+            let h = tex.height() * sprite_scale;
+            // Flip horizontally to face the player
+            draw_texture_ex(tex, right_ship_x + w / 2.0, ship_y - h / 2.0, WHITE,
+                DrawTextureParams {
+                    dest_size: Some(vec2(-w, h)), // negative width = horizontal flip
+                    ..Default::default()
+                });
+        } else {
+            let (red, green, blue) = encounter.get_color_rgb();
+            let c = Color::from_rgba(red, green, blue, 255);
+            draw_circle(right_ship_x, ship_y, ship_size * 0.8, c);
+            draw_rectangle(right_ship_x - ship_size * 0.6, ship_y - ship_size * 0.4, ship_size * 1.2, ship_size * 0.8, c);
+        }
+    } else {
+        let (red, green, blue) = encounter.get_color_rgb();
+        let c = Color::from_rgba(red, green, blue, 255);
+        draw_circle(right_ship_x, ship_y, ship_size * 0.8, c);
+        draw_rectangle(right_ship_x - ship_size * 0.6, ship_y - ship_size * 0.4, ship_size * 1.2, ship_size * 0.8, c);
+    }
 
     let sun_size = (15.0 * t.scale).clamp(10.0, 25.0);
     draw_circle(screen_width() - t.margin * 4.0, t.header_height + t.margin * 2.5, sun_size, YELLOW);

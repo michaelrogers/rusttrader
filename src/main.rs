@@ -10,7 +10,7 @@ mod assets;
 
 use macroquad::prelude::*;
 use types::{GameState, TradeGood, Ship};
-use assets::{GameAssets, draw_ship};
+use assets::{GameAssets, draw_ship, draw_ui_image};
 use ui::{
     draw_encounter_screen, draw_galactic_chart, draw_main_menu, draw_panel, draw_repair_screen,
     draw_shipyard_screen, draw_system_info_screen, draw_text_with_limits, draw_trading_screen,
@@ -41,7 +41,7 @@ enum GameScreen {
     MoonVictory,
 }
 
-fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str) {
+fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str, assets: Option<&GameAssets>) {
     let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
     
@@ -96,6 +96,13 @@ fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str)
             };
             
             draw_text(&ship_label, name_col, y, t.font_medium, color);
+            
+            // Draw ship sprite next to the name
+            if let Some(assets) = assets {
+                let sprite_scale = (1.5 * t.scale).clamp(1.0, 2.5);
+                draw_ship(assets, ship.name, name_col - t.margin * 1.5, y - t.font_medium * 0.5, false, false, sprite_scale);
+            }
+            
             draw_text_with_limits(ship.description, desc_col, y, t.font_small, LIGHTGRAY, list_w * 0.30);
             
             let stats = format!(
@@ -136,20 +143,29 @@ fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str)
     }
 }
 
-fn draw_game_over_screen(game_state: &GameState, had_escape_pod: bool) {
+fn draw_game_over_screen(game_state: &GameState, had_escape_pod: bool, assets: Option<&GameAssets>) {
     let t = theme();
     clear_background(Color::from_rgba(20, 5, 5, 255));
     
     let w = screen_width();
     let h = screen_height();
     let center_x = w / 2.0;
-    let center_y = h / 2.0;
+    
+    // Show destroyed image if available
+    let mut content_top = h * 0.25;
+    if !had_escape_pod {
+        if let Some(assets) = assets {
+            let img_scale = (2.0 * t.scale).clamp(1.5, 3.0);
+            draw_ui_image(assets, "destroyed", center_x, h * 0.28, img_scale);
+            content_top = h * 0.28 + 80.0 * img_scale + t.margin;
+        }
+    }
     
     // Title
     let title = if had_escape_pod { "RESCUED!" } else { "GAME OVER" };
     let title_color = if had_escape_pod { YELLOW } else { RED };
     let title_width = measure_text(title, None, t.font_title as u16, 1.0).width;
-    draw_text(title, center_x - title_width / 2.0, center_y - t.line_height * 3.0, t.font_title, title_color);
+    draw_text(title, center_x - title_width / 2.0, content_top, t.font_title, title_color);
     
     // Message
     let message = if had_escape_pod {
@@ -158,7 +174,7 @@ fn draw_game_over_screen(game_state: &GameState, had_escape_pod: bool) {
         "Your ship was destroyed in the depths of space.\nNo escape pod was found among the wreckage."
     };
     
-    let mut y = center_y - t.line_height;
+    let mut y = content_top + t.line_height * 2.0;
     for line in message.lines() {
         let line_width = measure_text(line, None, t.font_medium as u16, 1.0).width;
         draw_text(line, center_x - line_width / 2.0, y, t.font_medium, LIGHTGRAY);
@@ -225,7 +241,7 @@ fn get_player_rank(score: i32) -> &'static str {
     }
 }
 
-fn draw_victory_screen(game_state: &GameState) {
+fn draw_victory_screen(game_state: &GameState, assets: Option<&GameAssets>) {
     let t = theme();
     clear_background(Color::from_rgba(5, 15, 30, 255));
     
@@ -237,15 +253,23 @@ fn draw_victory_screen(game_state: &GameState) {
     let (total_score, net_worth, days_bonus, rep_bonus, police_bonus) = calculate_score(game_state);
     let rank = get_player_rank(total_score);
     
+    // Show retire image if available
+    let mut title_y = t.margin * 4.0;
+    if let Some(assets) = assets {
+        let img_scale = (1.5 * t.scale).clamp(1.0, 2.5);
+        draw_ui_image(assets, "retire", center_x, t.margin * 2.0 + 80.0 * img_scale, img_scale);
+        title_y = t.margin * 2.0 + 160.0 * img_scale + t.margin;
+    }
+    
     // Title
     let title = "RETIREMENT";
     let title_width = measure_text(title, None, t.font_title as u16, 1.0).width;
-    draw_text(title, center_x - title_width / 2.0, t.margin * 4.0, t.font_title, GOLD);
+    draw_text(title, center_x - title_width / 2.0, title_y, t.font_title, GOLD);
     
     // Rank
     let rank_text = format!("Final Rank: {}", rank);
     let rank_width = measure_text(&rank_text, None, t.font_large as u16, 1.0).width;
-    draw_text(&rank_text, center_x - rank_width / 2.0, t.margin * 7.0, t.font_large, WHITE);
+    draw_text(&rank_text, center_x - rank_width / 2.0, title_y + t.line_height * 1.5, t.font_large, WHITE);
     
     // Score breakdown panel
     let panel_w = w * 0.6;
@@ -327,7 +351,7 @@ fn draw_victory_screen(game_state: &GameState) {
 
 const MOON_COST: i32 = 500000;
 
-fn draw_moon_victory_screen(game_state: &GameState) {
+fn draw_moon_victory_screen(game_state: &GameState, assets: Option<&GameAssets>) {
     let t = theme();
     clear_background(Color::from_rgba(5, 5, 20, 255));
     
@@ -343,14 +367,23 @@ fn draw_moon_victory_screen(game_state: &GameState) {
         draw_circle(x, y, 1.0 + (i % 3) as f32 * 0.5, Color::new(brightness, brightness, brightness * 1.1, 1.0));
     }
     
-    // Draw moon
+    // Draw moon: use utopia image if available, else procedural
     let moon_y = h * 0.35;
-    let moon_r = (80.0 * t.scale).clamp(60.0, 120.0);
-    draw_circle(center_x, moon_y, moon_r, Color::from_rgba(220, 220, 230, 255));
-    // Craters
-    draw_circle(center_x + moon_r * 0.3, moon_y - moon_r * 0.2, moon_r * 0.15, Color::from_rgba(190, 190, 205, 255));
-    draw_circle(center_x - moon_r * 0.25, moon_y + moon_r * 0.3, moon_r * 0.12, Color::from_rgba(180, 180, 195, 255));
-    draw_circle(center_x + moon_r * 0.1, moon_y + moon_r * 0.15, moon_r * 0.08, Color::from_rgba(200, 200, 215, 255));
+    let mut drew_utopia = false;
+    if let Some(assets) = assets {
+        let img_scale = (2.0 * t.scale).clamp(1.5, 3.0);
+        if assets.get_ui("utopia").is_some() {
+            draw_ui_image(assets, "utopia", center_x, moon_y, img_scale);
+            drew_utopia = true;
+        }
+    }
+    if !drew_utopia {
+        let moon_r = (80.0 * t.scale).clamp(60.0, 120.0);
+        draw_circle(center_x, moon_y, moon_r, Color::from_rgba(220, 220, 230, 255));
+        draw_circle(center_x + moon_r * 0.3, moon_y - moon_r * 0.2, moon_r * 0.15, Color::from_rgba(190, 190, 205, 255));
+        draw_circle(center_x - moon_r * 0.25, moon_y + moon_r * 0.3, moon_r * 0.12, Color::from_rgba(180, 180, 195, 255));
+        draw_circle(center_x + moon_r * 0.1, moon_y + moon_r * 0.15, moon_r * 0.08, Color::from_rgba(200, 200, 215, 255));
+    }
     
     // Title
     let title = "CONGRATULATIONS!";
@@ -411,7 +444,7 @@ async fn main() {
     let mut menu_message = String::new();
     let mut menu_timer = 0.0f32;
     loop {
-        draw_main_menu().await;
+        draw_main_menu(assets.as_ref()).await;
 
         if menu_timer > 0.0 {
             menu_timer -= get_frame_time();
@@ -484,7 +517,7 @@ async fn main() {
         match current_screen {
             GameScreen::Encounter => {
                 if let Some(ref encounter) = current_encounter {
-                    draw_encounter_screen(encounter, &encounter_message);
+                    draw_encounter_screen(encounter, &encounter_message, assets.as_ref(), game_state.ship.ship_type);
                 }
             }
             GameScreen::Trading => {
@@ -498,6 +531,7 @@ async fn main() {
                     waypoint_system,
                     selected_chart_system,
                     short_range_pan,
+                    assets.as_ref(),
                 ) {
                     match action {
                         ShortRangeChartAction::OpenGalacticChart => {
@@ -540,7 +574,7 @@ async fn main() {
                 draw_repair_screen(&game_state, &trade_message);
             }
             GameScreen::ShipShop => {
-                draw_ship_shop_screen(&game_state, selected_upgrade, &trade_message);
+                draw_ship_shop_screen(&game_state, selected_upgrade, &trade_message, assets.as_ref());
             }
             GameScreen::SystemInfo => {
                 draw_system_info_screen(
@@ -551,13 +585,13 @@ async fn main() {
                 );
             }
             GameScreen::GameOver => {
-                draw_game_over_screen(&game_state, death_had_escape_pod);
+                draw_game_over_screen(&game_state, death_had_escape_pod, assets.as_ref());
             }
             GameScreen::Victory => {
-                draw_victory_screen(&game_state);
+                draw_victory_screen(&game_state, assets.as_ref());
             }
             GameScreen::MoonVictory => {
-                draw_moon_victory_screen(&game_state);
+                draw_moon_victory_screen(&game_state, assets.as_ref());
             }
             GameScreen::Main => {
                 // Main game screen
@@ -701,8 +735,12 @@ async fn main() {
             draw_text(&format!("Can buy: {} units", max_buyable_fuel), p2_x + text_inset, y0 + line * 7.0, t.font_medium, LIGHTGRAY);
 
             if let Some(ref assets) = assets {
-                let ship_scale = (0.8 * t.scale).clamp(0.5, 1.5);
-                draw_ship(assets, game_state.ship.name.as_str(), p2_x + panel_w - t.margin * 4.0, panel_top + panel_h * 0.5, false, false, ship_scale);
+                let is_damaged = game_state.ship.hull < max_hull / 2;
+                let is_shielded = game_state.ship.shield_installed;
+                let ship_scale = (2.0 * t.scale).clamp(1.5, 3.5);
+                let sprite_x = p2_x + panel_w - t.margin * 5.0;
+                let sprite_y = panel_top + panel_h * 0.45;
+                draw_ship(assets, game_state.ship.name.as_str(), sprite_x, sprite_y, is_damaged, is_shielded, ship_scale);
             } else {
                 let ship_x = p2_x + panel_w - t.margin * 3.5;
                 let ship_y = panel_top + panel_h * 0.55;
