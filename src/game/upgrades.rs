@@ -9,6 +9,8 @@ pub enum UpgradeType {
     Weapons,        // +5 armor/combat rating
     ShieldGenerator, // New: reduces damage by 20%
     Hull,           // +10 hull integrity
+    EscapePod,      // Survive ship destruction
+    Insurance,      // Get credits when rescued
 }
 
 impl UpgradeType {
@@ -19,6 +21,8 @@ impl UpgradeType {
             UpgradeType::Weapons => "Weapons System",
             UpgradeType::ShieldGenerator => "Shield Generator",
             UpgradeType::Hull => "Hull Reinforcement",
+            UpgradeType::EscapePod => "Escape Pod",
+            UpgradeType::Insurance => "Ship Insurance",
         }
     }
 
@@ -29,6 +33,8 @@ impl UpgradeType {
             UpgradeType::Weapons => "Improves combat capabilities",
             UpgradeType::ShieldGenerator => "Reduces incoming damage by 20%",
             UpgradeType::Hull => "Increases hull strength by 10 points",
+            UpgradeType::EscapePod => "Survive if your ship is destroyed",
+            UpgradeType::Insurance => "Receive 5000 credits when rescued",
         }
     }
 
@@ -39,6 +45,8 @@ impl UpgradeType {
             UpgradeType::Weapons => 10000,
             UpgradeType::ShieldGenerator => 15000,
             UpgradeType::Hull => 6000,
+            UpgradeType::EscapePod => 2000,
+            UpgradeType::Insurance => 1000,
         }
     }
 
@@ -49,6 +57,8 @@ impl UpgradeType {
             UpgradeType::Weapons => TechLevel::Renaissance,
             UpgradeType::ShieldGenerator => TechLevel::HiTech,
             UpgradeType::Hull => TechLevel::Medieval,
+            UpgradeType::EscapePod => TechLevel::EarlyIndustrial,
+            UpgradeType::Insurance => TechLevel::Industrial,
         }
     }
 }
@@ -63,6 +73,8 @@ pub fn get_available_upgrades(game_state: &GameState) -> Vec<(UpgradeType, i32)>
         UpgradeType::Weapons,
         UpgradeType::ShieldGenerator,
         UpgradeType::Hull,
+        UpgradeType::EscapePod,
+        UpgradeType::Insurance,
     ]
     .into_iter()
     .filter_map(|upgrade| {
@@ -127,6 +139,16 @@ pub fn purchase_upgrade(
                 return Err("Hull already fully reinforced".to_string());
             }
         }
+        UpgradeType::EscapePod => {
+            if game_state.escape_pod {
+                return Err("Escape pod already installed".to_string());
+            }
+        }
+        UpgradeType::Insurance => {
+            if game_state.insurance {
+                return Err("Already have ship insurance".to_string());
+            }
+        }
     }
 
     // Check credits
@@ -160,6 +182,14 @@ pub fn purchase_upgrade(
         UpgradeType::Hull => {
             game_state.ship.hull_reinforcement += 1;
             Ok(format!("Reinforced hull! (+10 integrity)"))
+        }
+        UpgradeType::EscapePod => {
+            game_state.escape_pod = true;
+            Ok(format!("Escape pod installed! You'll survive ship destruction."))
+        }
+        UpgradeType::Insurance => {
+            game_state.insurance = true;
+            Ok(format!("Ship insurance purchased! Receive 5000 cr when rescued."))
         }
     }
 }

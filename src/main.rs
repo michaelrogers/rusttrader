@@ -1187,15 +1187,21 @@ async fn main() {
                 if death_had_escape_pod {
                     // Escape pod: respawn with minimal resources
                     // Return to a safe system with a basic ship
+                    let had_insurance = game_state.insurance;
                     game_state.ship = Ship::new_flea(); // Basic ship
-                    game_state.credits = 500; // Minimal starting funds
+                    // 500 base credits + 5000 if insured
+                    game_state.credits = if had_insurance { 5500 } else { 500 };
                     game_state.insurance = false;
                     game_state.escape_pod = false;
                     // Clear any cargo
                     for i in 0..game_state.ship.cargo.len() {
                         game_state.ship.cargo[i] = 0;
                     }
-                    trade_message = "You've been rescued! Starting over with a basic ship.".to_string();
+                    if had_insurance {
+                        trade_message = "You've been rescued! Insurance paid out 5000 credits.".to_string();
+                    } else {
+                        trade_message = "You've been rescued! Starting over with a basic ship.".to_string();
+                    }
                     message_timer = 4.0;
                     current_screen = GameScreen::Main;
                 } else {
