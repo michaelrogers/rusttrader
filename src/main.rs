@@ -36,6 +36,7 @@ enum GameScreen {
     ShipShop,
     GalacticChart,
     GameOver,
+    Victory,
 }
 
 fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str) {
@@ -173,6 +174,153 @@ fn draw_game_over_screen(game_state: &GameState, had_escape_pod: bool) {
     let inst = if had_escape_pod { "Press ENTER to continue..." } else { "Press ENTER to start a new game..." };
     let inst_width = measure_text(inst, None, t.font_medium as u16, 1.0).width;
     draw_text(inst, center_x - inst_width / 2.0, y, t.font_medium, WHITE);
+}
+
+/// Calculate final score based on game state
+fn calculate_score(game_state: &GameState) -> (i32, i32, i32, i32, i32) {
+    use crate::types::ship::SHIP_TYPES;
+    
+    // Net worth: credits + ship value (50% of price) - debt
+    let ship_value = SHIP_TYPES[game_state.ship.ship_type].price / 2;
+    let cargo_value = game_state.ship.cargo.iter().enumerate()
+        .map(|(i, &qty)| {
+            let good = TradeGood::from_index(i);
+            qty * good.base_price()
+        })
+        .sum::<i32>();
+    let net_worth = game_state.credits + ship_value + cargo_value - game_state.debt;
+    
+    // Days bonus: fewer days = better (capped at 1000 days)
+    let days_bonus = (1000 - game_state.days.min(1000)).max(0);
+    
+    // Reputation bonus
+    let reputation_bonus = game_state.reputation_score * 10;
+    
+    // Police record penalty/bonus (clean record = +500, criminal = negative)
+    let police_bonus = if game_state.police_record_score <= 0 {
+        500 // Clean record bonus
+    } else {
+        -game_state.police_record_score * 5 // Criminal penalty
+    };
+    
+    // Total score
+    let total = (net_worth / 10) + days_bonus + reputation_bonus + police_bonus;
+    
+    (total, net_worth, days_bonus, reputation_bonus, police_bonus)
+}
+
+/// Get player rank based on score
+fn get_player_rank(score: i32) -> &'static str {
+    match score {
+        s if s >= 50000 => "Elite Trader",
+        s if s >= 30000 => "Master Merchant",
+        s if s >= 20000 => "Successful Entrepreneur",
+        s if s >= 10000 => "Competent Trader",
+        s if s >= 5000 => "Journeyman Merchant",
+        s if s >= 2000 => "Novice Trader",
+        s if s >= 500 => "Beginner",
+        _ => "Peddler",
+    }
+}
+
+fn draw_victory_screen(game_state: &GameState) {
+    let t = theme();
+    clear_background(Color::from_rgba(5, 15, 30, 255));
+    
+    let w = screen_width();
+    let h = screen_height();
+    let center_x = w / 2.0;
+    
+    // Calculate score
+    let (total_score, net_worth, days_bonus, rep_bonus, police_bonus) = calculate_score(game_state);
+    let rank = get_player_rank(total_score);
+    
+    // Title
+    let title = "RETIREMENT";
+    let title_width = measure_text(title, None, t.font_title as u16, 1.0).width;
+    draw_text(title, center_x - title_width / 2.0, t.margin * 4.0, t.font_title, GOLD);
+    
+    // Rank
+    let rank_text = format!("Final Rank: {}", rank);
+    let rank_width = measure_text(&rank_text, None, t.font_large as u16, 1.0).width;
+    draw_text(&rank_text, center_x - rank_width / 2.0, t.margin * 7.0, t.font_large, WHITE);
+    
+    // Score breakdown panel
+    let panel_w = w * 0.6;
+    let panel_h = t.line_height * 10.0;
+    let panel_x = (w - panel_w) / 2.0;
+    let panel_y = h * 0.3;
+    draw_panel(panel_x, panel_y, panel_w, panel_h);
+    
+    // Panel title
+    draw_text("Score Breakdown", panel_x + t.padding * 2.0, panel_y + t.line_height, t.font_medium, SKYBLUE);
+    
+    let mut y = panel_y + t.line_height * 2.0;
+    let label_x = panel_x + t.padding * 2.0;
+    let value_x = panel_x + panel_w - t.padding * 4.0;
+    
+    // Net worth
+    let nw_label = "Net Worth:";
+    let nw_value = format!("{} cr", net_worth);
+    draw_text(nw_label, label_x, y, t.font_medium, LIGHTGRAY);
+    let nw_width = measure_text(&nw_value, None, t.font_medium as u16, 1.0).width;
+    draw_text(&nw_value, value_x - nw_width, y, t.font_medium, GREEN);
+    y += t.line_height;
+    
+    // Worth contribution
+    let worth_contrib = format!("+{} pts", net_worth / 10);
+    let wc_width = measure_text(&worth_contrib, None, t.font_small as u16, 1.0).width;
+    draw_text(&worth_contrib, value_x - wc_width, y, t.font_small, GRAY);
+    y += t.line_height;
+    
+    // Days
+    let days_label = format!("Days played: {}", game_state.days);
+    let days_value = format!("+{} pts", days_bonus);
+    draw_text(&days_label, label_x, y, t.font_medium, LIGHTGRAY);
+    let dv_width = measure_text(&days_value, None, t.font_medium as u16, 1.0).width;
+    draw_text(&days_value, value_x - dv_width, y, t.font_medium, if days_bonus > 500 { GREEN } else { YELLOW });
+    y += t.line_height;
+    
+    // Reputation
+    let rep_label = format!("Reputation: {}", game_state.reputation_score);
+    let rep_value = format!("+{} pts", rep_bonus);
+    draw_text(&rep_label, label_x, y, t.font_medium, LIGHTGRAY);
+    let rv_width = measure_text(&rep_value, None, t.font_medium as u16, 1.0).width;
+    draw_text(&rep_value, value_x - rv_width, y, t.font_medium, if rep_bonus > 0 { GREEN } else { GRAY });
+    y += t.line_height;
+    
+    // Police record
+    let police_label = format!("Police record: {}", game_state.police_record_score);
+    let police_value = format!("{}{} pts", if police_bonus >= 0 { "+" } else { "" }, police_bonus);
+    draw_text(&police_label, label_x, y, t.font_medium, LIGHTGRAY);
+    let pv_width = measure_text(&police_value, None, t.font_medium as u16, 1.0).width;
+    let police_color = if police_bonus > 0 { GREEN } else if police_bonus < 0 { RED } else { GRAY };
+    draw_text(&police_value, value_x - pv_width, y, t.font_medium, police_color);
+    y += t.line_height * 1.5;
+    
+    // Total score
+    draw_line(label_x, y - t.line_height * 0.3, value_x, y - t.line_height * 0.3, 1.0, GRAY);
+    let total_label = "TOTAL SCORE:";
+    let total_value = format!("{} pts", total_score);
+    draw_text(total_label, label_x, y, t.font_large, WHITE);
+    let tv_width = measure_text(&total_value, None, t.font_large as u16, 1.0).width;
+    draw_text(&total_value, value_x - tv_width, y, t.font_large, GOLD);
+    
+    // Flavor text
+    let flavor = match rank {
+        "Elite Trader" => "You've achieved legendary status among the stars!",
+        "Master Merchant" => "Your name is known in every port of the galaxy.",
+        "Successful Entrepreneur" => "You've built a comfortable fortune.",
+        "Competent Trader" => "A respectable career in the trade lanes.",
+        _ => "There's always another voyage...",
+    };
+    let flavor_width = measure_text(flavor, None, t.font_medium as u16, 1.0).width;
+    draw_text(flavor, center_x - flavor_width / 2.0, h - t.margin * 8.0, t.font_medium, SKYBLUE);
+    
+    // Instructions
+    let inst = "Press ENTER to start a new adventure...";
+    let inst_width = measure_text(inst, None, t.font_medium as u16, 1.0).width;
+    draw_text(inst, center_x - inst_width / 2.0, h - t.margin * 4.0, t.font_medium, WHITE);
 }
 
 #[macroquad::main("Space Trader")]
@@ -315,6 +463,9 @@ async fn main() {
             }
             GameScreen::GameOver => {
                 draw_game_over_screen(&game_state, death_had_escape_pod);
+            }
+            GameScreen::Victory => {
+                draw_victory_screen(&game_state);
             }
             GameScreen::Main => {
                 // Main game screen
@@ -481,7 +632,7 @@ async fn main() {
             draw_text("R - Repair Dock", p3_x + text_inset, y0 + line * 4.0, t.font_medium, WHITE);
             draw_text("H - Ship Shop", p3_x + text_inset, y0 + line * 5.0, t.font_medium, WHITE);
             draw_text("F - Refuel", p3_x + text_inset, y0 + line * 6.0, t.font_medium, WHITE);
-            draw_text("S - Save | Q - Quit", p3_x + text_inset, y0 + line * 7.0, t.font_medium, LIGHTGRAY);
+            draw_text("E - Retire | S - Save | Q - Quit", p3_x + text_inset, y0 + line * 7.0, t.font_medium, LIGHTGRAY);
 
             // Footer hint
             draw_text(
@@ -1056,10 +1207,25 @@ async fn main() {
                     current_screen = GameScreen::Main;
                 }
             }
+        } else if current_screen == GameScreen::Victory {
+            // Victory screen input
+            if is_key_pressed(KeyCode::Enter) {
+                // Start a new game
+                game_state.start_new_game();
+                let current_id = game_state.current_system_id;
+                determine_prices(&mut game_state, current_id);
+                trade_message.clear();
+                current_screen = GameScreen::Main;
+            }
         } else {
             // Main screen input
             if is_key_pressed(KeyCode::Q) || is_key_pressed(KeyCode::Escape) {
                 break;
+            }
+            
+            // Retire (End game with score)
+            if is_key_pressed(KeyCode::E) {
+                current_screen = GameScreen::Victory;
             }
             
             if is_key_pressed(KeyCode::T) {
