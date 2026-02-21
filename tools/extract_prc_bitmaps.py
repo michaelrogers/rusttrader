@@ -135,12 +135,11 @@ def decompress_scanline(compressed_data, height, row_bytes):
         differ from the previous row.  Only the differing bytes are stored.
         The first row is compared against an implicit all-zero previous row.
 
-    The mask covers mask_size*8 bit positions which may exceed row_bytes.
-    Data bytes for ALL set bits must be consumed to stay in sync, but only
-    positions within row_bytes are written to the output.
+    The mask is ceil(rowBytes/8) bytes, but only the first rowBytes bits are
+    meaningful.  Bits beyond rowBytes are padding and must be IGNORED — no
+    data bytes exist for them.  (Ref: pilot-link pi-bitmap.c scan_uncompress)
     """
     mask_size = (row_bytes + 7) // 8
-    total_positions = mask_size * 8
     output = bytearray(row_bytes * height)
     pos = 0
     prev_row = bytearray(row_bytes)
@@ -154,15 +153,13 @@ def decompress_scanline(compressed_data, height, row_bytes):
 
         row = bytearray(prev_row)
 
-        for bit_idx in range(total_positions):
+        for bit_idx in range(row_bytes):
             bit_byte = bit_idx >> 3
             bit_pos = 7 - (bit_idx & 7)
             if mask[bit_byte] & (1 << bit_pos):
                 if pos < len(compressed_data):
-                    val = compressed_data[pos]
+                    row[bit_idx] = compressed_data[pos]
                     pos += 1
-                    if bit_idx < row_bytes:
-                        row[bit_idx] = val
 
         output[y * row_bytes : (y + 1) * row_bytes] = row
         prev_row = row
@@ -503,6 +500,23 @@ def main():
             print(f"  SKIP  ID {rid:5d}: {w}x{h} {ps}bpp — unsupported format")
             skipped += 1
             continue
+
+        # Post-process: convert white background to transparent for full-screen
+        # UI images (about, retire, spacetrader, utopia, destroyed) that were
+        # stored without transparency on Palm's white-background screens.
+        # This allows them to overlay our dark game background correctly.
+        TRANSPARENT_BG_IMAGES = {
+            "ui/spacetrader.png", "ui/retire.png", "ui/destroyed.png",
+            "ui/utopia.png", "ui/about.png",
+        }
+        if not has_transp and filename in TRANSPARENT_BG_IMAGES:
+            pixels = img.load()
+            for y in range(img.height):
+                for x in range(img.width):
+                    r, g, b, a = pixels[x, y]
+                    if r == 255 and g == 255 and b == 255:
+                        pixels[x, y] = (255, 255, 255, 0)
+            has_transp = True
 
         # Optional upscaling
         if args.scale > 1:
