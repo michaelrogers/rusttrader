@@ -876,10 +876,13 @@ async fn main() {
             }
         } else if current_screen == GameScreen::Warp {
             let systems = systems_in_range(&game_state);
-            let chart_x = 20.0;
-            let chart_y = 120.0;
-            let chart_w = screen_width() * 0.45;
-            let chart_h = screen_height() * 0.55;
+            let t = theme();
+            let chart_x = t.margin;
+            let chart_y = t.header_height + t.tab_height + t.line_height * 2.0;
+            // Match square dimensions from draw_warp_screen
+            let chart_size = (screen_width() * 0.45).min(screen_height() * 0.55);
+            let chart_w = chart_size;
+            let chart_h = chart_size;
             let mouse = vec2(mouse_position().0, mouse_position().1);
 
             if is_mouse_button_pressed(MouseButton::Left) {

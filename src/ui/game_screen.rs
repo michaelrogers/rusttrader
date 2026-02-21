@@ -285,21 +285,24 @@ fn draw_short_range_chart(
             && y - r <= panel_y + panel_h - 6.0
     };
 
-    // Draw range circles if they fit
-    if drawable_circle(center_x, center_y, radius) {
+    // Draw range circles - scale with zoom
+    // Grey circle: max range with full fuel tank
+    let max_fuel_radius = radius * zoom;
+    if drawable_circle(center_x, center_y, max_fuel_radius) {
         draw_circle_lines(
             center_x,
             center_y,
-            radius,
+            max_fuel_radius,
             2.0,
-            Color::from_rgba(200, 200, 220, 200),
+            Color::from_rgba(120, 120, 140, 180),
         );
     }
 
     let current = &game_state.solar_systems[game_state.current_system_id];
     let max_range = game_state.ship.max_fuel().max(1) as f32;
     let current_range = game_state.ship.fuel.max(0) as f32;
-    let fuel_radius = radius * (current_range / max_range).min(1.0);
+    // Green circle: current fuel range
+    let fuel_radius = current_range * scale;
     
     if drawable_circle(center_x, center_y, fuel_radius) {
         draw_circle_lines(
@@ -307,7 +310,7 @@ fn draw_short_range_chart(
             center_y,
             fuel_radius,
             2.0,
-            Color::from_rgba(120, 190, 120, 200),
+            Color::from_rgba(100, 200, 100, 220),
         );
     }
 
@@ -448,28 +451,36 @@ fn draw_short_range_chart(
     }
 
     draw_text("Short Range Chart", panel_x + t.padding, panel_y + t.line_height_small, t.font_medium, SKYBLUE);
+    
+    // Legend at bottom
+    let legend_y = panel_y + panel_h - t.padding;
     draw_text(
-        "Range:",
+        &format!("Fuel: {}/{}", current_range as i32, max_range as i32),
         panel_x + t.padding,
-        panel_y + panel_h - t.padding,
-        t.font_small,
-        LIGHTGRAY,
-    );
-    let range_label_w = measure_text("Range: ", None, t.font_small as u16, 1.0).width;
-    draw_text(
-        &format!("{} parsecs", max_range as i32),
-        panel_x + t.padding + range_label_w,
-        panel_y + panel_h - t.padding,
+        legend_y,
         t.font_small,
         WHITE,
     );
-    let reachable_w = measure_text("● Reachable", None, t.font_small as u16, 1.0).width;
+    
+    // Circle legend - positioned on the right
+    let green_legend = "○ Current range";
+    let grey_legend = "○ Full tank";
+    let green_w = measure_text(green_legend, None, t.font_small as u16, 1.0).width;
+    let grey_w = measure_text(grey_legend, None, t.font_small as u16, 1.0).width;
+    
     draw_text(
-        "● Reachable",
-        panel_x + panel_w - reachable_w - t.padding,
-        panel_y + panel_h - t.padding,
+        grey_legend,
+        panel_x + panel_w - grey_w - t.padding,
+        legend_y,
         t.font_small,
-        Color::from_rgba(80, 200, 90, 255),
+        Color::from_rgba(120, 120, 140, 200),
+    );
+    draw_text(
+        green_legend,
+        panel_x + panel_w - grey_w - green_w - t.padding * 3.0,
+        legend_y,
+        t.font_small,
+        Color::from_rgba(100, 200, 100, 255),
     );
 }
 
@@ -771,8 +782,10 @@ pub fn draw_warp_screen(
 
     let chart_x = t.margin;
     let chart_y = t.header_height + t.tab_height + t.line_height * 2.0;
-    let chart_w = screen_width() * 0.45;
-    let chart_h = screen_height() * 0.55;
+    // Make the chart a perfect square
+    let chart_size = (screen_width() * 0.45).min(screen_height() * 0.55);
+    let chart_w = chart_size;
+    let chart_h = chart_size;
     draw_short_range_chart(
         game_state,
         waypoint_system,
