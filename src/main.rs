@@ -14,7 +14,8 @@ use assets::{GameAssets, draw_ship};
 use ui::{
     draw_encounter_screen, draw_galactic_chart, draw_main_menu, draw_panel, draw_repair_screen,
     draw_shipyard_screen, draw_system_info_screen, draw_text_with_limits, draw_trading_screen,
-    draw_warp_screen, galactic_chart_hit_test, short_range_chart_hit_test, theme,
+    draw_warp_screen, galactic_chart_hit_test, short_range_chart_hit_test, navigation_tab_hit_test, theme,
+    ShortRangeChartAction,
 };
 use game::trading::{buy_cargo, sell_cargo, max_buyable, buy_fuel, get_fuel_cost, max_fuel_buyable};
 use game::pricing::{get_buy_price, determine_prices};
@@ -468,7 +469,7 @@ async fn main() {
     let mut waypoint_system: Option<usize> = None;
     let mut selected_chart_system: Option<usize> = None;
     let mut short_range_pan = vec2(0.0, 0.0);
-    let mut short_range_zoom = 1.0f32;
+    let mut short_range_pan_velocity = vec2(0.0, 0.0); // For smooth panning
     let mut galactic_pan = vec2(0.0, 0.0);
     let mut galactic_zoom = 1.0f32;
     let mut search_query = String::new();
@@ -490,15 +491,36 @@ async fn main() {
                 draw_trading_screen(&game_state, selected_good, &trade_message);
             }
             GameScreen::Warp => {
-                draw_warp_screen(
+                if let Some(action) = draw_warp_screen(
                     &game_state,
                     selected_system,
                     &trade_message,
                     waypoint_system,
                     selected_chart_system,
                     short_range_pan,
-                    short_range_zoom,
-                );
+                ) {
+                    match action {
+                        ShortRangeChartAction::OpenGalacticChart => {
+                            current_screen = GameScreen::GalacticChart;
+                        }
+                        ShortRangeChartAction::PanLeft => {
+                            short_range_pan_velocity.x -= 8.0;
+                        }
+                        ShortRangeChartAction::PanRight => {
+                            short_range_pan_velocity.x += 8.0;
+                        }
+                        ShortRangeChartAction::PanUp => {
+                            short_range_pan_velocity.y -= 8.0;
+                        }
+                        ShortRangeChartAction::PanDown => {
+                            short_range_pan_velocity.y += 8.0;
+                        }
+                        ShortRangeChartAction::Recenter => {
+                            short_range_pan = vec2(0.0, 0.0);
+                            short_range_pan_velocity = vec2(0.0, 0.0);
+                        }
+                    }
+                }
             }
             GameScreen::GalacticChart => {
                 draw_galactic_chart(
@@ -886,10 +908,30 @@ async fn main() {
             let mouse = vec2(mouse_position().0, mouse_position().1);
 
             if is_mouse_button_pressed(MouseButton::Left) {
-                if let Some(hit_id) = short_range_chart_hit_test(
+                // Check tab clicks first
+                if let Some(tab_idx) = navigation_tab_hit_test(mouse, t.header_height) {
+                    match tab_idx {
+                        0 => { // Buy
+                            current_screen = GameScreen::Trading;
+                            selected_good = 0;
+                        }
+                        1 => { // Sell
+                            current_screen = GameScreen::Trading;
+                            selected_good = 0;
+                        }
+                        2 => { // Ship Yard
+                            current_screen = GameScreen::Shipyard;
+                            selected_upgrade = 0;
+                        }
+                        3 => { // Warp - already here
+                        }
+                        _ => {}
+                    }
+                }
+                // Check chart clicks
+                else if let Some(hit_id) = short_range_chart_hit_test(
                     &game_state,
                     short_range_pan,
-                    short_range_zoom,
                     chart_x,
                     chart_y,
                     chart_w,
@@ -901,28 +943,61 @@ async fn main() {
                         selected_system = pos;
                     }
                 }
+                // Check system list row clicks
+                else if !systems.is_empty() {
+                    let list_x = chart_x + chart_w + t.margin;
+                    let list_w = screen_width() - list_x - t.margin;
+                    let y_start = chart_y + t.line_height * 1.5;
+                    
+                    if mouse.x >= list_x && mouse.x <= list_x + list_w {
+                        for (index, &(system_id, _)) in systems.iter().enumerate() {
+                            let row_y = y_start + (index as f32 * t.line_height);
+                            if mouse.y >= row_y - t.line_height * 0.65 && mouse.y <= row_y + t.line_height * 0.25 {
+                                selected_system = index;
+                                selected_chart_system = Some(system_id);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
 
-            // Short range chart pan/zoom
-            let pan_speed = 6.0;
+            // Short range chart pan with smooth velocity
+            let pan_accel = 2.0;  // Slower acceleration
+            let pan_friction = 0.85; // Friction for smooth deceleration
+            let pan_limit = chart_w * 0.5; // Limit to 50% of chart width
+            
+            // Keyboard adds to velocity
             if is_key_down(KeyCode::I) {
-                short_range_pan.y += pan_speed;
+                short_range_pan_velocity.y += pan_accel;
             }
             if is_key_down(KeyCode::K) {
-                short_range_pan.y -= pan_speed;
+                short_range_pan_velocity.y -= pan_accel;
             }
             if is_key_down(KeyCode::J) {
-                short_range_pan.x += pan_speed;
+                short_range_pan_velocity.x += pan_accel;
             }
             if is_key_down(KeyCode::L) {
-                short_range_pan.x -= pan_speed;
+                short_range_pan_velocity.x -= pan_accel;
             }
-            if is_key_pressed(KeyCode::Minus) || is_key_pressed(KeyCode::Z) {
-                short_range_zoom = (short_range_zoom - 0.1).max(0.6);
+            
+            // Apply friction and velocity
+            short_range_pan_velocity *= pan_friction;
+            short_range_pan += short_range_pan_velocity;
+            
+            // Clamp velocity
+            let max_vel = 12.0;
+            short_range_pan_velocity.x = short_range_pan_velocity.x.clamp(-max_vel, max_vel);
+            short_range_pan_velocity.y = short_range_pan_velocity.y.clamp(-max_vel, max_vel);
+            
+            // Stop tiny movements
+            if short_range_pan_velocity.length() < 0.1 {
+                short_range_pan_velocity = vec2(0.0, 0.0);
             }
-            if is_key_pressed(KeyCode::Equal) || is_key_pressed(KeyCode::X) {
-                short_range_zoom = (short_range_zoom + 0.1).min(2.0);
-            }
+            
+            // Clamp pan to limits
+            short_range_pan.x = short_range_pan.x.clamp(-pan_limit, pan_limit);
+            short_range_pan.y = short_range_pan.y.clamp(-pan_limit, pan_limit);
             
             if !systems.is_empty() {
                 // Navigation

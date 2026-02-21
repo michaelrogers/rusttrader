@@ -131,43 +131,71 @@ fn draw_navigation_tabs(active_buy: bool, active_sell: bool, active_shipyard: bo
     }
 }
 
+/// Returns which tab was clicked: 0=Buy, 1=Sell, 2=ShipYard, 3=Warp, or None
+pub fn navigation_tab_hit_test(mouse: Vec2, tab_bar_y: f32) -> Option<usize> {
+    let t = theme();
+    let tab_h = t.tab_height;
+    let scale = t.scale;
+    
+    // Check if mouse is in the tab bar vertically
+    if mouse.y < tab_bar_y + 3.0 || mouse.y > tab_bar_y + tab_h - 3.0 {
+        return None;
+    }
+    
+    let tab_widths = [90.0 * scale, 90.0 * scale, 130.0 * scale, 90.0 * scale];
+    let mut x = t.margin;
+    
+    for (idx, &width) in tab_widths.iter().enumerate() {
+        if mouse.x >= x && mouse.x <= x + width {
+            return Some(idx);
+        }
+        x += width + t.padding;
+    }
+    None
+}
+
 fn short_range_chart_transform(
     game_state: &GameState,
     pan: Vec2,
-    zoom: f32,
-    panel_x: f32,
-    panel_y: f32,
-    panel_w: f32,
-    panel_h: f32,
+    content_x: f32,
+    content_y: f32,
+    content_w: f32,
+    content_h: f32,
 ) -> (Vec2, f32, f32) {
     // Use the smaller dimension to ensure circles stay circular
-    let chart_size = panel_w.min(panel_h);
-    // Leave padding for title and footer text
-    let usable_size = chart_size - 60.0;
+    let chart_size = content_w.min(content_h);
+    // Leave padding for edges
+    let usable_size = chart_size - 20.0;
     let radius = (usable_size * 0.5).max(50.0);
     
-    // Center in the panel
-    let center_x = panel_x + panel_w / 2.0 + pan.x;
-    let center_y = panel_y + panel_h / 2.0 + pan.y;
+    // Center in the content area (not full panel)
+    let center_x = content_x + content_w / 2.0 + pan.x;
+    let center_y = content_y + content_h / 2.0 + pan.y;
     let center = vec2(center_x, center_y);
     
     let max_range = game_state.ship.max_fuel().max(1) as f32;
-    let scale = (radius / max_range) * zoom;
+    let scale = radius / max_range; // No zoom for short range chart
     (center, radius, scale)
 }
 
 pub fn short_range_chart_hit_test(
     game_state: &GameState,
     pan: Vec2,
-    zoom: f32,
     panel_x: f32,
     panel_y: f32,
     panel_w: f32,
     panel_h: f32,
     mouse: Vec2,
 ) -> Option<usize> {
+    let t = theme();
+    // Calculate content area bounds (same as in draw function)
+    let header_bar_h = t.line_height_small * 1.4;
+    let legend_h = t.line_height_small * 1.5;
+    let content_y = panel_y + header_bar_h;
+    let content_h = panel_h - header_bar_h - legend_h;
+    
     let (center, _radius, scale) =
-        short_range_chart_transform(game_state, pan, zoom, panel_x, panel_y, panel_w, panel_h);
+        short_range_chart_transform(game_state, pan, panel_x, content_y, panel_w, content_h);
     let current = &game_state.solar_systems[game_state.current_system_id];
 
     let mut best: Option<(usize, f32)> = None;
@@ -176,11 +204,12 @@ pub fn short_range_chart_hit_test(
         let dy = (system.y - current.y) as f32;
         let px = center.x + dx * scale;
         let py = center.y + dy * scale;
-        let in_panel = px >= panel_x + 6.0
+        // Check within content area, not full panel
+        let in_content = px >= panel_x + 6.0
             && px <= panel_x + panel_w - 6.0
-            && py >= panel_y + 6.0
-            && py <= panel_y + panel_h - 6.0;
-        if !in_panel {
+            && py >= content_y + 6.0
+            && py <= content_y + content_h - 6.0;
+        if !in_content {
             continue;
         }
         let dist = mouse.distance(vec2(px, py));
@@ -257,66 +286,61 @@ pub fn galactic_chart_hit_test(
     best.map(|(idx, _)| idx)
 }
 
+/// Actions that can be triggered from the short range chart
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ShortRangeChartAction {
+    PanLeft,
+    PanRight,
+    PanUp,
+    PanDown,
+    OpenGalacticChart,
+    Recenter,
+}
+
 fn draw_short_range_chart(
     game_state: &GameState,
     waypoint_system: Option<usize>,
     selected_system: Option<usize>,
     pan: Vec2,
-    zoom: f32,
     panel_x: f32,
     panel_y: f32,
     panel_w: f32,
     panel_h: f32,
-) {
+) -> Option<ShortRangeChartAction> {
     let t = theme();
-    draw_panel(panel_x, panel_y, panel_w, panel_h);
+    let bg_color = Color::from_rgba(12, 18, 34, 255); // Solid bg for masking
+    draw_rectangle(panel_x, panel_y, panel_w, panel_h, bg_color);
+
+    // Header bar height - content area starts below this
+    let header_bar_h = t.line_height_small * 1.4;
+    // Content area bounds (excluding header and legend)
+    let legend_h = t.line_height_small * 1.5;
+    let content_y = panel_y + header_bar_h;
+    let content_h = panel_h - header_bar_h - legend_h;
 
     // Draw in screen space directly - no camera transform to avoid aspect distortion
+    // Pass content area bounds so chart centers correctly below header
     let (center, radius, scale) =
-        short_range_chart_transform(game_state, pan, zoom, panel_x, panel_y, panel_w, panel_h);
+        short_range_chart_transform(game_state, pan, panel_x, content_y, panel_w, content_h);
     let center_x = center.x;
     let center_y = center.y;
-
-    // Helper: check if a point with radius is visible in panel
-    let drawable_circle = |x: f32, y: f32, r: f32| -> bool {
-        x + r >= panel_x + 6.0
-            && x - r <= panel_x + panel_w - 6.0
-            && y + r >= panel_y + 6.0
-            && y - r <= panel_y + panel_h - 6.0
-    };
-
-    // Draw range circles - scale with zoom
-    // Grey circle: max range with full fuel tank
-    let max_fuel_radius = radius * zoom;
-    if drawable_circle(center_x, center_y, max_fuel_radius) {
-        draw_circle_lines(
-            center_x,
-            center_y,
-            max_fuel_radius,
-            2.0,
-            Color::from_rgba(120, 120, 140, 180),
-        );
-    }
 
     let current = &game_state.solar_systems[game_state.current_system_id];
     let max_range = game_state.ship.max_fuel().max(1) as f32;
     let current_range = game_state.ship.fuel.max(0) as f32;
-    // Green circle: current fuel range
+
+    // Draw range circles
+    let max_fuel_radius = radius;
+    draw_circle_lines(center_x, center_y, max_fuel_radius, 2.0, Color::from_rgba(120, 120, 140, 180));
     let fuel_radius = current_range * scale;
-    
-    if drawable_circle(center_x, center_y, fuel_radius) {
-        draw_circle_lines(
-            center_x,
-            center_y,
-            fuel_radius,
-            2.0,
-            Color::from_rgba(100, 200, 100, 220),
-        );
-    }
+    draw_circle_lines(center_x, center_y, fuel_radius, 2.0, Color::from_rgba(100, 200, 100, 220));
 
     // Collect labels to render after switching camera
     let mut labels: Vec<(String, f32, f32, Color)> = Vec::new();
 
+    // Track current system position for click detection
+    let mut current_system_pos: (f32, f32) = (center_x, center_y);
+    
     for (idx, system) in game_state.solar_systems.iter().enumerate() {
         let dx = (system.x - current.x) as f32;
         let dy = (system.y - current.y) as f32;
@@ -324,26 +348,36 @@ fn draw_short_range_chart(
         let px = center_x + dx * scale;
         let py = center_y + dy * scale;
 
-        let in_panel = px >= panel_x + 6.0
-            && px <= panel_x + panel_w - 6.0
-            && py >= panel_y + 6.0
-            && py <= panel_y + panel_h - 6.0;
-        if !in_panel {
+        // Only draw systems inside the content area
+        let in_content = px >= panel_x && px <= panel_x + panel_w
+            && py >= content_y && py <= content_y + content_h;
+        
+        if !in_content {
             continue;
         }
 
         let is_current = system.name == current.name;
         let is_waypoint = waypoint_system.map(|id| id == idx).unwrap_or(false);
         let is_selected = selected_system.map(|id| id == idx).unwrap_or(false);
-        let color = if is_current {
-            Color::from_rgba(70, 140, 255, 255)
+        let in_range = dist <= current_range;
+        
+        // Save current system position for click detection
+        if is_current {
+            current_system_pos = (px, py);
+        }
+        
+        let base_color = if is_current {
+            (70, 140, 255)
         } else if is_waypoint {
-            Color::from_rgba(255, 180, 80, 255)
-        } else if dist <= current_range {
-            Color::from_rgba(80, 200, 90, 255)
+            (255, 180, 80)
+        } else if in_range {
+            (80, 200, 90)
         } else {
-            Color::from_rgba(110, 110, 130, 200)
+            (110, 110, 130)
         };
+        
+        let base_alpha: u8 = if is_current || is_waypoint || in_range { 255 } else { 200 };
+        let color = Color::from_rgba(base_color.0, base_color.1, base_color.2, base_alpha);
 
         // Larger markers for better visibility
         let marker_r = if is_current { t.system_marker_size * 0.7 } else { t.system_marker_size * 0.5 };
@@ -352,17 +386,25 @@ fn draw_short_range_chart(
             draw_circle_lines(px, py, marker_r + 3.0 * t.scale, 2.5, Color::from_rgba(255, 230, 150, 220));
         }
 
-        let label_color = if dist <= current_range {
-            WHITE
-        } else {
-            Color::from_rgba(190, 190, 200, 200)
-        };
-        labels.push((system.name.clone(), px, py, label_color));
+        // Only add labels for systems inside content area with some padding
+        let in_panel = px >= panel_x + 6.0
+            && px <= panel_x + panel_w - 6.0
+            && py >= content_y + 6.0
+            && py <= content_y + content_h - 6.0;
+        
+        if in_panel {
+            let label_color = if in_range || is_current || is_waypoint {
+                WHITE
+            } else {
+                Color::from_rgba(190, 190, 200, 200)
+            };
+            labels.push((system.name.clone(), px, py, label_color));
+        }
     }
 
-    // Draw center crosshair if it's in view
+    // Draw center crosshair if it's in view (within content area)
     if center_x >= panel_x + 6.0 && center_x <= panel_x + panel_w - 6.0
-        && center_y >= panel_y + 6.0 && center_y <= panel_y + panel_h - 6.0
+        && center_y >= content_y + 6.0 && center_y <= content_y + content_h - 6.0
     {
         draw_line(
             center_x - 6.0,
@@ -395,11 +437,11 @@ fn draw_short_range_chart(
             let end_x = center_x + vx;
             let end_y = center_y + vy;
             
-            // Only draw waypoint line if endpoints are visible
+            // Only draw waypoint line if endpoints are visible (within content area)
             if (center_x >= panel_x + 6.0 && center_x <= panel_x + panel_w - 6.0
-                && center_y >= panel_y + 6.0 && center_y <= panel_y + panel_h - 6.0)
+                && center_y >= content_y + 6.0 && center_y <= content_y + content_h - 6.0)
                 && (end_x >= panel_x + 6.0 && end_x <= panel_x + panel_w - 6.0
-                && end_y >= panel_y + 6.0 && end_y <= panel_y + panel_h - 6.0)
+                && end_y >= content_y + 6.0 && end_y <= content_y + content_h - 6.0)
             {
                 draw_line(
                     center_x,
@@ -428,60 +470,182 @@ fn draw_short_range_chart(
         let label_x = px - name_w / 2.0;
         let label_y = py - marker_offset;
         
-        // Check bounds in screen space
+        // Check bounds in screen space (content area excludes header and legend)
         let text_in_bounds = label_x >= panel_x + t.padding
             && label_x + name_w <= panel_x + panel_w - t.padding
-            && label_y >= panel_y + t.padding
-            && label_y + label_size <= panel_y + panel_h - t.padding;
+            && label_y >= content_y + t.padding
+            && label_y + label_size <= content_y + content_h - t.padding;
             
         if text_in_bounds {
             draw_text(&name, label_x, label_y, label_size, color);
         }
     }
 
+    // Draw masking rectangles to clip circles at edges
+    let mask_color = bg_color;
+    // Top mask (above panel entirely)
+    draw_rectangle(0.0, 0.0, screen_width(), panel_y, mask_color);
+    // Top mask (header area)
+    draw_rectangle(panel_x, panel_y, panel_w, header_bar_h, mask_color);
+    // Bottom mask (legend area and below panel)
+    draw_rectangle(panel_x, content_y + content_h, panel_w, screen_height() - (content_y + content_h), mask_color);
+    // Left mask (outside panel - full screen height below panel)
+    draw_rectangle(0.0, panel_y, panel_x, screen_height() - panel_y, mask_color);
+    // Right mask (outside panel - full screen height below panel)
+    draw_rectangle(panel_x + panel_w, panel_y, screen_width() - panel_x - panel_w, screen_height() - panel_y, mask_color);
+    // Extra bottom mask (below entire panel to screen bottom)
+    draw_rectangle(0.0, panel_y + panel_h, screen_width(), screen_height() - panel_y - panel_h, mask_color);
+
     // Render waypoint info
     if let Some((target_name, dist)) = waypoint_info {
         draw_text(
-            &format!("{:.1} parsecs to {}", dist, target_name),
+            &format!("{:.1}ly to {}", dist, target_name),
             panel_x + t.padding,
-            panel_y + panel_h - t.line_height_small * 1.8,
+            content_y + content_h + t.line_height_small * 0.3,
             t.font_small,
-            WHITE,
+            Color::from_rgba(255, 180, 80, 255),
         );
     }
 
+    // Header area: title on dark bar at top of panel
+    draw_rectangle(panel_x, panel_y, panel_w, header_bar_h, Color::from_rgba(30, 40, 70, 240));
     draw_text("Short Range Chart", panel_x + t.padding, panel_y + t.line_height_small, t.font_medium, SKYBLUE);
     
+    // Recenter button (next to maximize)
+    let btn_size = header_bar_h - 4.0;
+    let recenter_btn_x = panel_x + panel_w - btn_size * 2.0 - 8.0;
+    let recenter_btn_y = panel_y + 2.0;
+    draw_rectangle(recenter_btn_x, recenter_btn_y, btn_size, btn_size, Color::from_rgba(50, 60, 90, 200));
+    draw_rectangle_lines(recenter_btn_x, recenter_btn_y, btn_size, btn_size, 1.0, Color::from_rgba(100, 120, 160, 200));
+    // Draw crosshair icon
+    let icon_cx = recenter_btn_x + btn_size / 2.0;
+    let icon_cy = recenter_btn_y + btn_size / 2.0;
+    let icon_r = btn_size * 0.3;
+    draw_circle_lines(icon_cx, icon_cy, icon_r, 1.5, Color::from_rgba(180, 200, 255, 200));
+    draw_line(icon_cx - icon_r - 2.0, icon_cy, icon_cx + icon_r + 2.0, icon_cy, 1.5, Color::from_rgba(180, 200, 255, 200));
+    draw_line(icon_cx, icon_cy - icon_r - 2.0, icon_cx, icon_cy + icon_r + 2.0, 1.5, Color::from_rgba(180, 200, 255, 200));
+
+    // Maximize button (⛶ or ↗) on the right side of header
+    let max_btn_size = btn_size;
+    let max_btn_x = panel_x + panel_w - max_btn_size - 4.0;
+    let max_btn_y = panel_y + 2.0;
+    draw_rectangle(max_btn_x, max_btn_y, max_btn_size, max_btn_size, Color::from_rgba(50, 60, 90, 200));
+    draw_rectangle_lines(max_btn_x, max_btn_y, max_btn_size, max_btn_size, 1.0, Color::from_rgba(100, 120, 160, 200));
+    // Draw expand icon (simple box with arrow)
+    let icon_margin = max_btn_size * 0.25;
+    draw_rectangle_lines(max_btn_x + icon_margin, max_btn_y + icon_margin, 
+                         max_btn_size - icon_margin * 2.0, max_btn_size - icon_margin * 2.0, 
+                         1.5, Color::from_rgba(180, 200, 255, 200));
+    
     // Legend at bottom
-    let legend_y = panel_y + panel_h - t.padding;
+    let legend_x = panel_x + t.padding;
+    let legend_y = panel_y + panel_h - t.padding * 0.5;
     draw_text(
         &format!("Fuel: {}/{}", current_range as i32, max_range as i32),
-        panel_x + t.padding,
+        legend_x,
         legend_y,
         t.font_small,
         WHITE,
     );
-    
-    // Circle legend - positioned on the right
-    let green_legend = "○ Current range";
-    let grey_legend = "○ Full tank";
+    let fuel_text = format!("Fuel: {}/{}", current_range as i32, max_range as i32);
+    let fuel_w = measure_text(&fuel_text, None, t.font_small as u16, 1.0).width;
+    let green_legend = "○ Range";
+    let grey_legend = "○ Full";
     let green_w = measure_text(green_legend, None, t.font_small as u16, 1.0).width;
-    let grey_w = measure_text(grey_legend, None, t.font_small as u16, 1.0).width;
+    draw_text(green_legend, legend_x + fuel_w + t.padding * 2.0, legend_y, t.font_small, Color::from_rgba(100, 200, 100, 255));
+    draw_text(grey_legend, legend_x + fuel_w + green_w + t.padding * 4.0, legend_y, t.font_small, Color::from_rgba(120, 120, 140, 200));
+
+    // Draw arrow controls on edges
+    let arrow_size = 20.0 * t.scale;
+    let arrow_color = Color::from_rgba(100, 120, 160, 150);
+    let arrow_hover = Color::from_rgba(150, 180, 220, 200);
+    let mouse = vec2(mouse_position().0, mouse_position().1);
     
-    draw_text(
-        grey_legend,
-        panel_x + panel_w - grey_w - t.padding,
-        legend_y,
-        t.font_small,
-        Color::from_rgba(120, 120, 140, 200),
+    // Left arrow - draw as triangle
+    let left_arrow_x = panel_x + 4.0;
+    let left_arrow_y = content_y + content_h / 2.0 - arrow_size / 2.0;
+    let left_hovered = mouse.x >= left_arrow_x && mouse.x <= left_arrow_x + arrow_size 
+                       && mouse.y >= left_arrow_y && mouse.y <= left_arrow_y + arrow_size;
+    let left_color = if left_hovered { arrow_hover } else { arrow_color };
+    draw_triangle(
+        vec2(left_arrow_x, left_arrow_y + arrow_size / 2.0),
+        vec2(left_arrow_x + arrow_size, left_arrow_y),
+        vec2(left_arrow_x + arrow_size, left_arrow_y + arrow_size),
+        left_color,
     );
-    draw_text(
-        green_legend,
-        panel_x + panel_w - grey_w - green_w - t.padding * 3.0,
-        legend_y,
-        t.font_small,
-        Color::from_rgba(100, 200, 100, 255),
+    
+    // Right arrow - draw as triangle
+    let right_arrow_x = panel_x + panel_w - arrow_size - 4.0;
+    let right_arrow_y = content_y + content_h / 2.0 - arrow_size / 2.0;
+    let right_hovered = mouse.x >= right_arrow_x && mouse.x <= right_arrow_x + arrow_size 
+                        && mouse.y >= right_arrow_y && mouse.y <= right_arrow_y + arrow_size;
+    let right_color = if right_hovered { arrow_hover } else { arrow_color };
+    draw_triangle(
+        vec2(right_arrow_x + arrow_size, right_arrow_y + arrow_size / 2.0),
+        vec2(right_arrow_x, right_arrow_y + arrow_size),
+        vec2(right_arrow_x, right_arrow_y),
+        right_color,
     );
+    
+    // Up arrow - draw as triangle
+    let up_arrow_x = panel_x + panel_w / 2.0 - arrow_size / 2.0;
+    let up_arrow_y = content_y + 4.0;
+    let up_hovered = mouse.x >= up_arrow_x && mouse.x <= up_arrow_x + arrow_size 
+                     && mouse.y >= up_arrow_y && mouse.y <= up_arrow_y + arrow_size;
+    let up_color = if up_hovered { arrow_hover } else { arrow_color };
+    draw_triangle(
+        vec2(up_arrow_x + arrow_size / 2.0, up_arrow_y),
+        vec2(up_arrow_x + arrow_size, up_arrow_y + arrow_size),
+        vec2(up_arrow_x, up_arrow_y + arrow_size),
+        up_color,
+    );
+    
+    // Down arrow - draw as triangle
+    let down_arrow_x = panel_x + panel_w / 2.0 - arrow_size / 2.0;
+    let down_arrow_y = content_y + content_h - arrow_size - 4.0;
+    let down_hovered = mouse.x >= down_arrow_x && mouse.x <= down_arrow_x + arrow_size 
+                       && mouse.y >= down_arrow_y && mouse.y <= down_arrow_y + arrow_size;
+    let down_color = if down_hovered { arrow_hover } else { arrow_color };
+    draw_triangle(
+        vec2(down_arrow_x + arrow_size / 2.0, down_arrow_y + arrow_size),
+        vec2(down_arrow_x, down_arrow_y),
+        vec2(down_arrow_x + arrow_size, down_arrow_y),
+        down_color,
+    );
+
+    // Redraw panel border on top of everything
+    draw_rectangle_lines(panel_x, panel_y, panel_w, panel_h, 2.0, Color::from_rgba(80, 100, 140, 200));
+
+    // Check for click actions
+    let mut action: Option<ShortRangeChartAction> = None;
+    if is_mouse_button_pressed(MouseButton::Left) {
+        // Check recenter button
+        if mouse.x >= recenter_btn_x && mouse.x <= recenter_btn_x + btn_size
+           && mouse.y >= recenter_btn_y && mouse.y <= recenter_btn_y + btn_size {
+            action = Some(ShortRangeChartAction::Recenter);
+        }
+        // Check maximize button
+        else if mouse.x >= max_btn_x && mouse.x <= max_btn_x + max_btn_size
+           && mouse.y >= max_btn_y && mouse.y <= max_btn_y + max_btn_size {
+            action = Some(ShortRangeChartAction::OpenGalacticChart);
+        }
+        // Check click on current system marker - recenter
+        else if (mouse.x - current_system_pos.0).abs() < 8.0 * t.scale && (mouse.y - current_system_pos.1).abs() < 8.0 * t.scale {
+            action = Some(ShortRangeChartAction::Recenter);
+        }
+        // Check arrow buttons
+        else if left_hovered {
+            action = Some(ShortRangeChartAction::PanRight); // Pan right shows left content
+        } else if right_hovered {
+            action = Some(ShortRangeChartAction::PanLeft); // Pan left shows right content
+        } else if up_hovered {
+            action = Some(ShortRangeChartAction::PanDown); // Pan down shows top content
+        } else if down_hovered {
+            action = Some(ShortRangeChartAction::PanUp); // Pan up shows bottom content
+        }
+    }
+    
+    action
 }
 
 pub fn draw_galactic_chart(
@@ -757,25 +921,40 @@ pub fn draw_warp_screen(
     waypoint_system: Option<usize>,
     selected_chart_system: Option<usize>,
     short_pan: Vec2,
-    short_zoom: f32,
-) {
+) -> Option<ShortRangeChartAction> {
     let t = theme();
     clear_background(Color::from_rgba(10, 10, 30, 255));
 
+    // Header bar
     draw_rectangle(0.0, 0.0, screen_width(), t.header_height, Color::from_rgba(20, 30, 60, 255));
     draw_text("Warp - Select Destination", t.margin, t.header_height * 0.62, t.font_title, GOLD);
     draw_navigation_tabs(false, false, false, true, t.header_height);
 
+    // Sub-header info row
+    let info_y = t.header_height + t.tab_height + t.line_height;
     draw_text(
-        &format!(
-            "Current: {} | Fuel: {}",
-            game_state.current_system_name(),
-            game_state.ship.fuel
-        ),
+        &format!("Current System: {}", game_state.current_system_name()),
         t.margin,
-        t.header_height + t.tab_height + t.line_height,
+        info_y,
         t.font_large,
         WHITE,
+    );
+    
+    // Right side info - ship and fuel
+    let ship_name = crate::types::ship::SHIP_TYPES[game_state.ship.ship_type].name;
+    let fuel_info = format!(
+        "Ship: {} | Fuel: {}/{}",
+        ship_name,
+        game_state.ship.fuel,
+        game_state.ship.max_fuel()
+    );
+    let fuel_info_w = measure_text(&fuel_info, None, t.font_large as u16, 1.0).width;
+    draw_text(
+        &fuel_info,
+        screen_width() - t.margin - fuel_info_w,
+        info_y,
+        t.font_large,
+        SKYBLUE,
     );
 
     let systems = systems_in_range(game_state);
@@ -786,12 +965,11 @@ pub fn draw_warp_screen(
     let chart_size = (screen_width() * 0.45).min(screen_height() * 0.55);
     let chart_w = chart_size;
     let chart_h = chart_size;
-    draw_short_range_chart(
+    let chart_action = draw_short_range_chart(
         game_state,
         waypoint_system,
         selected_chart_system,
         short_pan,
-        short_zoom,
         chart_x,
         chart_y,
         chart_w,
@@ -817,28 +995,56 @@ pub fn draw_warp_screen(
         let list_x = chart_x + chart_w + t.margin;
         let list_w = screen_width() - list_x - t.margin;
         let col_system = list_x;
-        let col_dist = list_x + list_w * 0.45;
-        let col_fuel = list_x + list_w * 0.7;
-        let col_visit = list_x + list_w * 0.85;
+        let col_tech = list_x + list_w * 0.22;
+        let col_gov = list_x + list_w * 0.40;
+        let col_dist = list_x + list_w * 0.60;
+        let col_fuel = list_x + list_w * 0.78;
+        let col_visit = list_x + list_w * 0.90;
         let y_start = chart_y;
+        
+        // Column headers
         draw_text("System", col_system, y_start, t.font_medium + 2.0, LIGHTGRAY);
-        draw_text("Distance", col_dist, y_start, t.font_medium + 2.0, LIGHTGRAY);
+        draw_text("Tech", col_tech, y_start, t.font_medium + 2.0, LIGHTGRAY);
+        draw_text("Gov't", col_gov, y_start, t.font_medium + 2.0, LIGHTGRAY);
+        draw_text("Dist", col_dist, y_start, t.font_medium + 2.0, LIGHTGRAY);
         draw_text("Fuel", col_fuel, y_start, t.font_medium + 2.0, LIGHTGRAY);
+
+        let tech_names = [
+            "Pre-Agri", "Agri", "Medieval", "Renaiss.",
+            "Early Ind", "Industr.", "Post-Ind", "Hi-Tech",
+        ];
+        let politics_names = [
+            "Anarchy", "Capital.", "Commun.", "Confed.",
+            "Corp.", "Cyber.", "Democr.", "Dictat.",
+            "Fascist", "Feudal", "Military", "Monarchy",
+            "Pacifist", "Social.", "Satori", "Techno.", "Theocr.",
+        ];
 
         for (index, &(system_id, distance)) in systems.iter().enumerate() {
             let y = y_start + t.line_height * 1.5 + (index as f32 * t.line_height);
             let system = &game_state.solar_systems[system_id];
             let fuel_cost = distance.ceil() as i32;
 
-            let color = if index == selected { YELLOW } else { WHITE };
+            let color = if index == selected { GOLD } else { WHITE };
             if index == selected {
+                // Draw highlighted background with border for selected system
                 draw_rectangle(
                     list_x - t.padding * 0.5,
                     y - t.line_height * 0.65,
                     list_w,
                     t.line_height * 0.9,
-                    Color::from_rgba(50, 50, 100, 128),
+                    Color::from_rgba(60, 70, 120, 180),
                 );
+                draw_rectangle_lines(
+                    list_x - t.padding * 0.5,
+                    y - t.line_height * 0.65,
+                    list_w,
+                    t.line_height * 0.9,
+                    2.0,
+                    GOLD,
+                );
+                // Draw arrow indicator
+                draw_text("▸", list_x - t.padding * 2.5, y, t.font_medium, GOLD);
             }
 
             let fuel_color = if fuel_cost <= game_state.ship.fuel {
@@ -848,6 +1054,13 @@ pub fn draw_warp_screen(
             };
 
             draw_text(&system.name, col_system, y, t.font_medium, color);
+            
+            let tech_name = tech_names.get(system.tech_level as usize).unwrap_or(&"?");
+            draw_text(tech_name, col_tech, y, t.font_small, LIGHTGRAY);
+            
+            let politics_name = politics_names.get(system.politics as usize).unwrap_or(&"?");
+            draw_text(politics_name, col_gov, y, t.font_small, LIGHTGRAY);
+            
             draw_text(&format!("{:.1} ly", distance), col_dist, y, t.font_medium, color);
             draw_text(&format!("{}", fuel_cost), col_fuel, y, t.font_medium, fuel_color);
 
@@ -855,92 +1068,78 @@ pub fn draw_warp_screen(
                 draw_text("✓", col_visit, y, t.font_medium, SKYBLUE);
             }
         }
-
-        let info_y = chart_y + chart_h - 80.0;
-        let selected_id = selected_chart_system.or_else(|| systems.get(selected).map(|(id, _)| *id));
-        if let Some(sel_id) = selected_id {
-            let system = &game_state.solar_systems[sel_id];
-            let dx = (system.x - game_state.current_system().x) as f32;
-            let dy = (system.y - game_state.current_system().y) as f32;
-            let dist = (dx * dx + dy * dy).sqrt();
-            let fuel_cost = dist.ceil() as i32;
-            let in_range = fuel_cost <= game_state.ship.fuel;
-
-            let tech_names = [
-                "Pre-Agri",
-                "Agri",
-                "Medieval",
-                "Renaissance",
-                "Early Ind",
-                "Industrial",
-                "Post-Ind",
-                "Hi-Tech",
-            ];
-            let tech_name = tech_names.get(system.tech_level as usize).unwrap_or(&"Unknown");
-
-            let politics_names = [
-                "Anarchy",
-                "Capitalist",
-                "Communist",
-                "Confederacy",
-                "Corporate",
-                "Cybernetic",
-                "Democracy",
-                "Dictatorship",
-                "Fascist",
-                "Feudal",
-                "Military",
-                "Monarchy",
-                "Pacifist",
-                "Socialist",
-                "Satori",
-                "Technocracy",
-                "Theocracy",
-            ];
-            let politics_name = politics_names.get(system.politics as usize).unwrap_or(&"Unknown");
-
-            draw_text(&format!("Selected: {}", system.name), list_x, info_y, t.font_medium, WHITE);
-            draw_text(
-                &format!("{} | {}", tech_name, politics_name),
-                list_x,
-                info_y + t.line_height_small,
-                t.font_small,
-                LIGHTGRAY,
-            );
-            draw_text(
-                &format!("Distance: {:.1} ly", dist),
-                list_x,
-                info_y + t.line_height_small * 2.0,
-                t.font_small,
-                LIGHTGRAY,
-            );
-            draw_text(
-                &format!(
-                    "Fuel: {} ({})",
-                    fuel_cost,
-                    if in_range { "In Range" } else { "Out of Range" }
-                ),
-                list_x,
-                info_y + t.line_height_small * 3.0,
-                t.font_small,
-                if in_range { GREEN } else { RED },
-            );
-        }
     }
 
-    let inst_y = screen_height() - t.header_height * 2.5;
-    draw_text("Controls:", t.margin, inst_y, t.font_medium, LIGHTGRAY);
+    // Selected system info panel - positioned below the chart
+    let info_panel_h = t.line_height * 4.5;
+    let info_panel_y = chart_y + chart_h + t.padding;
+    draw_panel(chart_x, info_panel_y, chart_w, info_panel_h);
+    
+    let selected_id = selected_chart_system.or_else(|| systems.get(selected).map(|(id, _)| *id));
+    if let Some(sel_id) = selected_id {
+        let system = &game_state.solar_systems[sel_id];
+        let dx = (system.x - game_state.current_system().x) as f32;
+        let dy = (system.y - game_state.current_system().y) as f32;
+        let dist = (dx * dx + dy * dy).sqrt();
+        let fuel_cost = dist.ceil() as i32;
+        let in_range = fuel_cost <= game_state.ship.fuel;
+
+        let tech_names = [
+            "Pre-Agri", "Agri", "Medieval", "Renaissance",
+            "Early Ind", "Industrial", "Post-Ind", "Hi-Tech",
+        ];
+        let tech_name = tech_names.get(system.tech_level as usize).unwrap_or(&"Unknown");
+
+        let politics_names = [
+            "Anarchy", "Capitalist", "Communist", "Confederacy",
+            "Corporate", "Cybernetic", "Democracy", "Dictatorship",
+            "Fascist", "Feudal", "Military", "Monarchy",
+            "Pacifist", "Socialist", "Satori", "Technocracy", "Theocracy",
+        ];
+        let politics_name = politics_names.get(system.politics as usize).unwrap_or(&"Unknown");
+
+        // First column - name and type
+        draw_text(&format!("Target: {}", system.name), chart_x + t.padding, info_panel_y + t.line_height, t.font_medium, GOLD);
+        draw_text(
+            &format!("{} | {}", tech_name, politics_name),
+            chart_x + t.padding,
+            info_panel_y + t.line_height + t.line_height_small,
+            t.font_small,
+            LIGHTGRAY,
+        );
+        
+        // Second column - distance and fuel
+        let col2_x = chart_x + chart_w * 0.5;
+        draw_text(
+            &format!("Distance: {:.1} ly", dist),
+            col2_x,
+            info_panel_y + t.line_height,
+            t.font_small,
+            WHITE,
+        );
+        draw_text(
+            &format!(
+                "Fuel: {} ({})",
+                fuel_cost,
+                if in_range { "In Range" } else { "Out of Range" }
+            ),
+            col2_x,
+            info_panel_y + t.line_height + t.line_height_small,
+            t.font_small,
+            if in_range { GREEN } else { RED },
+        );
+    } else {
+        draw_text("Select a destination", chart_x + t.padding, info_panel_y + t.line_height, t.font_medium, LIGHTGRAY);
+    }
+
+    // Footer controls - positioned at very bottom of screen
+    let footer_h = t.line_height_small * 2.5;
+    let inst_y = screen_height() - footer_h;
+    draw_rectangle(0.0, inst_y - t.padding, screen_width(), footer_h + t.padding, Color::from_rgba(15, 20, 40, 230));
     draw_text(
-        "↑↓ - Select  |  ENTER/W - Warp  |  G - Galactic Chart  |  ESC/Q - Cancel",
+        "↑↓ Select | ENTER/W Warp | G Galaxy | ESC Cancel | I/J/K/L Pan | Click Select",
         t.margin,
-        inst_y + t.line_height_small,
-        t.font_small,
-        LIGHTGRAY,
-    );
-    draw_text(
-        "I/J/K/L - Pan Chart  |  +/- or Z/X - Zoom  |  Click: Select",
-        t.margin,
-        inst_y + t.line_height_small * 2.0,
+        inst_y + t.line_height_small * 0.8,
         t.font_small,
         LIGHTGRAY,
     );
@@ -967,6 +1166,8 @@ pub fn draw_warp_screen(
             },
         );
     }
+    
+    chart_action
 }
 
 pub fn draw_text_with_limits(text: &str, x: f32, mut y: f32, font_size: f32, color: Color, max_width: f32) {
