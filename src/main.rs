@@ -37,6 +37,7 @@ enum GameScreen {
     GalacticChart,
     GameOver,
     Victory,
+    MoonVictory,
 }
 
 fn draw_ship_shop_screen(game_state: &GameState, selected: usize, message: &str) {
@@ -323,6 +324,72 @@ fn draw_victory_screen(game_state: &GameState) {
     draw_text(inst, center_x - inst_width / 2.0, h - t.margin * 4.0, t.font_medium, WHITE);
 }
 
+const MOON_COST: i32 = 500000;
+
+fn draw_moon_victory_screen(game_state: &GameState) {
+    let t = theme();
+    clear_background(Color::from_rgba(5, 5, 20, 255));
+    
+    let w = screen_width();
+    let h = screen_height();
+    let center_x = w / 2.0;
+    
+    // Draw stars
+    for i in 0..150 {
+        let x = (i as f32 * 73.0) % w;
+        let y = (i as f32 * 47.0 + (i as f32 * 0.1).sin() * 30.0) % h;
+        let brightness = 0.3 + ((i % 10) as f32) * 0.07;
+        draw_circle(x, y, 1.0 + (i % 3) as f32 * 0.5, Color::new(brightness, brightness, brightness * 1.1, 1.0));
+    }
+    
+    // Draw moon
+    let moon_y = h * 0.35;
+    let moon_r = (80.0 * t.scale).clamp(60.0, 120.0);
+    draw_circle(center_x, moon_y, moon_r, Color::from_rgba(220, 220, 230, 255));
+    // Craters
+    draw_circle(center_x + moon_r * 0.3, moon_y - moon_r * 0.2, moon_r * 0.15, Color::from_rgba(190, 190, 205, 255));
+    draw_circle(center_x - moon_r * 0.25, moon_y + moon_r * 0.3, moon_r * 0.12, Color::from_rgba(180, 180, 195, 255));
+    draw_circle(center_x + moon_r * 0.1, moon_y + moon_r * 0.15, moon_r * 0.08, Color::from_rgba(200, 200, 215, 255));
+    
+    // Title
+    let title = "CONGRATULATIONS!";
+    let title_width = measure_text(title, None, t.font_title as u16, 1.0).width;
+    draw_text(title, center_x - title_width / 2.0, h * 0.6, t.font_title, GOLD);
+    
+    // Subtitle
+    let subtitle = "You've purchased your own moon!";
+    let sub_width = measure_text(subtitle, None, t.font_large as u16, 1.0).width;
+    draw_text(subtitle, center_x - sub_width / 2.0, h * 0.6 + t.line_height * 1.5, t.font_large, WHITE);
+    
+    // Story text
+    let story_lines = [
+        "After years of trading among the stars,",
+        "you've achieved the ultimate dream:",
+        "a private moon to call your own.",
+        "",
+        "Your trading empire is complete.",
+    ];
+    
+    let mut y = h * 0.7;
+    for line in &story_lines {
+        let line_width = measure_text(line, None, t.font_medium as u16, 1.0).width;
+        draw_text(line, center_x - line_width / 2.0, y, t.font_medium, LIGHTGRAY);
+        y += t.line_height;
+    }
+    
+    // Final stats
+    y += t.line_height;
+    let stats = format!("Final wealth: {} credits  |  Days: {}  |  Rank: Ultimate Trader", 
+        game_state.credits + MOON_COST, game_state.days);
+    let stats_width = measure_text(&stats, None, t.font_small as u16, 1.0).width;
+    draw_text(&stats, center_x - stats_width / 2.0, y, t.font_small, SKYBLUE);
+    
+    // Instructions
+    let inst = "Press ENTER to start a new adventure...";
+    let inst_width = measure_text(inst, None, t.font_medium as u16, 1.0).width;
+    draw_text(inst, center_x - inst_width / 2.0, h - t.margin * 4.0, t.font_medium, WHITE);
+}
+
 #[macroquad::main("Space Trader")]
 async fn main() {
     let mut game_state = GameState::new();
@@ -466,6 +533,9 @@ async fn main() {
             }
             GameScreen::Victory => {
                 draw_victory_screen(&game_state);
+            }
+            GameScreen::MoonVictory => {
+                draw_moon_victory_screen(&game_state);
             }
             GameScreen::Main => {
                 // Main game screen
@@ -1044,6 +1114,25 @@ async fn main() {
                     message_timer = 2.0;
                 }
             }
+            
+            // Buy moon (only in HiTech systems)
+            if is_key_pressed(KeyCode::M) {
+                use crate::types::solar_system::TechLevel;
+                let system = &game_state.solar_systems[game_state.current_system_id];
+                if system.tech_level == TechLevel::HiTech {
+                    if game_state.credits >= MOON_COST {
+                        game_state.credits -= MOON_COST;
+                        game_state.moon_purchased = true;
+                        current_screen = GameScreen::MoonVictory;
+                    } else {
+                        trade_message = format!("Need {} credits to buy a moon!", MOON_COST);
+                        message_timer = 3.0;
+                    }
+                } else {
+                    trade_message = "Moons only available in Hi-Tech systems!".to_string();
+                    message_timer = 2.0;
+                }
+            }
 
             // Cancel newspaper dialog
             if is_key_pressed(KeyCode::C) && show_newspaper_prompt {
@@ -1215,6 +1304,16 @@ async fn main() {
             }
         } else if current_screen == GameScreen::Victory {
             // Victory screen input
+            if is_key_pressed(KeyCode::Enter) {
+                // Start a new game
+                game_state.start_new_game();
+                let current_id = game_state.current_system_id;
+                determine_prices(&mut game_state, current_id);
+                trade_message.clear();
+                current_screen = GameScreen::Main;
+            }
+        } else if current_screen == GameScreen::MoonVictory {
+            // Moon Victory screen input
             if is_key_pressed(KeyCode::Enter) {
                 // Start a new game
                 game_state.start_new_game();

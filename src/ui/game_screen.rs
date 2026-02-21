@@ -1715,8 +1715,16 @@ pub fn draw_system_info_screen(
     let inst_y = screen_height() - t.header_height * 1.3;
     draw_text("Controls:", t.margin, inst_y, t.font_small, LIGHTGRAY);
     if !show_newspaper {
+        // Check if Hi-Tech system for moon option
+        use crate::types::solar_system::TechLevel;
+        let is_hitech = current_system.tech_level == TechLevel::HiTech;
+        let controls = if is_hitech {
+            "N - Newspaper  |  M - Buy Moon (500,000 cr)  |  ESC/Q - Back"
+        } else {
+            "N - Buy Newspaper  |  ESC/Q - Back"
+        };
         draw_text(
-            "N - Buy Newspaper  |  ESC/Q - Back",
+            controls,
             t.margin,
             inst_y + t.line_height * 0.8,
             t.font_small,

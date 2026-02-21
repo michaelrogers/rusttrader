@@ -35,6 +35,7 @@ pub struct GameState {
     // Flags
     pub escape_pod: bool,
     pub insurance: bool,
+    pub moon_purchased: bool,
     pub jarek_status: u8,
     pub invasion_status: u8,
     pub reactor_status: u8,
@@ -69,6 +70,7 @@ impl GameState {
             
             escape_pod: false,
             insurance: false,
+            moon_purchased: false,
             jarek_status: 0,
             invasion_status: 0,
             reactor_status: 0,
