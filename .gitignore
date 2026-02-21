@@ -29,5 +29,8 @@ venv/
 ENV/
 *.egg-info/
 
+# Palm OS binary (download with extract_prc_bitmaps.py)
+tools/*.prc
+
 # Assets (optional - uncomment if not committing generated assets)
 # assets/temp_decompiled/
