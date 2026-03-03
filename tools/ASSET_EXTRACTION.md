@@ -23,7 +23,7 @@ pip install Pillow
 python3 tools/extract_prc_bitmaps.py
 ```
 
-This extracts all 70 bitmap resources as PNGs into `assets/ships/`, `assets/icons/`,
+This extracts all 71 bitmap resources as PNGs into `assets/ships/`, `assets/icons/`,
 and `assets/ui/`, replacing any existing placeholder files.
 
 ### Options
@@ -46,18 +46,19 @@ The extractor directly parses the Palm OS PRC (Palm Resource Collection) binary 
 1. **PRC container** — 78-byte header + 10-byte record entries listing each resource's
    type, ID, and file offset.
 
-2. **Tbmp resources** — Palm OS `BitmapType` structures with a 16-byte header
+2. **Tbmp resources** — Palm OS `BitmapType` v2 structures with a 16-byte header
    (width, height, rowBytes, flags, pixelSize, version, etc.) followed by pixel data.
 
-3. **8-bit indexed color** — All bitmaps use the standard Palm OS 256-color system
-   palette (6×6×6 color cube). No embedded color tables.
+3. **8-bit indexed color** — All bitmaps use the canonical Palm OS 256-color system
+   palette (`PalmPalette8bpp` from pilrc). No embedded color tables.
 
-4. **ScanLine compression** — Most ship sprites use Palm OS compression type 1:
-   each row stores a bitmask indicating which bytes differ from the previous row,
-   followed by only the changed bytes.
+4. **RLE compression** — Ship sprites use Palm OS compression type 1: each row is
+   stored as `(count, value)` byte pairs where counts sum to rowBytes.
 
 5. **Transparency** — Palette index 0 (white) is the transparency color. The
    extractor converts this to RGBA PNG with alpha=0 for transparent pixels.
+
+For full technical details see [docs/PALM_BITMAP_FORMAT.md](../docs/PALM_BITMAP_FORMAT.md).
 
 ## Resource ID Mapping
 
@@ -81,14 +82,10 @@ have shielded and shielded+damaged variants:
 
 ## Previous Approaches (Superseded)
 
-The following approaches were attempted but are no longer needed:
-
-- **pilrc** (`extract_palm_resources.py`) — Required the discontinued pilrc tool
-  and `.rsrc` files from the GitHub repo (which are 0-byte Git LFS stubs).
-- **CloudpilotEMU screenshots** — Manual 3-4 hour process of screenshotting each
-  sprite from the browser-based emulator.
-- **palm-db-tools** — JavaScript-based, required Node.js, didn't handle bitmap
-  decoding.
+- **pilrc** — Required the discontinued pilrc tool and `.rsrc` files
+  (which are 0-byte Git LFS stubs in the source repo).
+- **CloudpilotEMU screenshots** — Manual process of screenshotting each sprite.
+- **palm-db-tools** — JavaScript-based, didn't handle bitmap decoding.
 
 ## Credits
 

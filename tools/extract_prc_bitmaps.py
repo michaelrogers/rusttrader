@@ -35,35 +35,47 @@ except ImportError:
 # ============================================================================
 
 def generate_palm_system_palette():
-    """Generate the standard Palm OS 256-color system palette.
+    """Generate the canonical Palm OS 256-color system palette.
 
-    Indices 0–215: 6×6×6 color cube
-        Index 0 = (255,255,255) = white
-        Index 215 = (0,0,0) = black
-        For index i:  R = (5 - i//36)*51,  G = (5 - (i//6)%6)*51,  B = (5 - i%6)*51
+    Source: PalmPalette8bpp[256][3] from pilrc (the Palm OS resource compiler).
 
-    Indices 216–225: supplementary grays not present in the 6×6×6 cube
-    Indices 226–254: reserved (black)
-    Index 255: black
+    Indices 0–214: 6×6×6 color cube minus pure black (215 entries)
+        The cube is organized with R changing slowest (every 18 entries),
+        G changing fastest (every entry), and B split across two halves:
+          First half  (indices 0–107):   B ∈ {255, 204, 153}
+          Second half (indices 108–214): B ∈ {102, 51, 0}
+
+    Index 215–224: supplementary grays (17, 34, 68, 85, 119, 136, 170, 187, 221, 238)
+    Index 225: (192, 192, 192) — silver
+    Index 226–229: named colors (maroon, purple, dark green, teal)
+    Index 230–255: black (0, 0, 0)
     """
     palette = [(0, 0, 0)] * 256
 
-    # 6×6×6 color cube (216 entries)
-    for i in range(216):
-        r = (5 - (i // 36)) * 51
-        g = (5 - ((i // 6) % 6)) * 51
-        b = (5 - (i % 6)) * 51
+    # 6×6×6 color cube minus black = 215 entries (indices 0–214)
+    for i in range(215):
+        if i < 108:
+            half, local = 0, i
+        else:
+            half, local = 1, i - 108
+
+        r = (5 - local // 18) * 51
+        g = (5 - local % 6) * 51
+        b = (5 - (half * 3 + (local % 18) // 6)) * 51
         palette[i] = (r, g, b)
 
-    # Supplementary grays (values not already in the cube)
-    extra_grays = [17, 34, 68, 85, 119, 136, 170, 187, 221, 238]
-    for j, v in enumerate(extra_grays):
-        palette[216 + j] = (v, v, v)
+    # Supplementary grays (indices 215–224)
+    for j, v in enumerate([17, 34, 68, 85, 119, 136, 170, 187, 221, 238]):
+        palette[215 + j] = (v, v, v)
 
-    # 226–255: black / reserved
-    for i in range(226, 256):
-        palette[i] = (0, 0, 0)
+    # Named colors
+    palette[225] = (192, 192, 192)  # Silver
+    palette[226] = (128, 0, 0)      # Maroon
+    palette[227] = (128, 0, 128)    # Purple
+    palette[228] = (0, 128, 0)      # Dark green
+    palette[229] = (0, 128, 128)    # Teal
 
+    # 230–255: black (already initialized to (0,0,0))
     return palette
 
 
@@ -124,45 +136,39 @@ def parse_prc(data):
 
 
 # ============================================================================
-# ScanLine Decompression (Palm OS compression type 1)
+# RLE Decompression (Palm OS compression type 1)
 # ============================================================================
 
-def decompress_scanline(compressed_data, height, row_bytes):
-    """Decompress Palm OS ScanLine-compressed bitmap data.
+def decompress_rle(compressed_data, height, row_bytes):
+    """Decompress Palm OS compressed bitmap data (RLE per scanline).
 
-    Algorithm:
-        For each row, a bitmask of ceil(rowBytes/8) bytes indicates which bytes
-        differ from the previous row.  Only the differing bytes are stored.
-        The first row is compared against an implicit all-zero previous row.
+    Despite compression type 1 being documented as 'ScanLine', the actual
+    encoding used in SpaceTrader.prc (v2 8bpp bitmaps) is a simple per-row
+    run-length encoding:
 
-    The mask is ceil(rowBytes/8) bytes, but only the first rowBytes bits are
-    meaningful.  Bits beyond rowBytes are padding and must be IGNORED — no
-    data bytes exist for them.  (Ref: pilot-link pi-bitmap.c scan_uncompress)
+        For each row: a sequence of (count, value) byte pairs.
+        Each pair means 'repeat value count times'.
+        The counts for each row sum to exactly row_bytes.
+
+    Trailing 00 00 padding may follow the last row (word-alignment).
     """
-    mask_size = (row_bytes + 7) // 8
     output = bytearray(row_bytes * height)
     pos = 0
-    prev_row = bytearray(row_bytes)
 
     for y in range(height):
-        if pos + mask_size > len(compressed_data):
-            break
-
-        mask = compressed_data[pos : pos + mask_size]
-        pos += mask_size
-
-        row = bytearray(prev_row)
-
-        for bit_idx in range(row_bytes):
-            bit_byte = bit_idx >> 3
-            bit_pos = 7 - (bit_idx & 7)
-            if mask[bit_byte] & (1 << bit_pos):
-                if pos < len(compressed_data):
-                    row[bit_idx] = compressed_data[pos]
-                    pos += 1
-
-        output[y * row_bytes : (y + 1) * row_bytes] = row
-        prev_row = row
+        row_pos = 0
+        while row_pos < row_bytes:
+            if pos + 2 > len(compressed_data):
+                return bytes(output)  # truncated data
+            count = compressed_data[pos]
+            value = compressed_data[pos + 1]
+            pos += 2
+            if count == 0:
+                return bytes(output)  # safety: avoid infinite loop
+            end = min(row_pos + count, row_bytes)
+            for i in range(row_pos, end):
+                output[y * row_bytes + i] = value
+            row_pos = end
 
     return bytes(output)
 
@@ -243,21 +249,25 @@ def decode_palm_bitmap(resource_data, palette):
                 local_palette[idx] = (r, g, b)
                 data_offset += 4
 
+    # V2+ compressed bitmaps have a 2-byte compressedSize field after the header
+    # (and after any color table). Skip it so we decompress the actual scanline data.
+    if compressed and version >= 2:
+        data_offset += 2
+
     pixel_data_raw = resource_data[data_offset:]
 
     # Decompress if needed
     if compressed:
-        if compression_type == 1:
-            pixel_data = decompress_scanline(pixel_data_raw, height, row_bytes)
-        elif compression_type == 2:
-            print("    Warning: RLE compression not implemented")
-            return None, False
+        if compression_type in (1, 2):
+            # Type 1 in SpaceTrader.prc v2 bitmaps uses per-row RLE encoding:
+            # (count, value) byte pairs per scanline, counts summing to row_bytes.
+            pixel_data = decompress_rle(pixel_data_raw, height, row_bytes)
         elif compression_type == 3:
             print("    Warning: PackBits compression not implemented")
             return None, False
         else:
-            # v0/v1 compressed defaults to ScanLine
-            pixel_data = decompress_scanline(pixel_data_raw, height, row_bytes)
+            # v0/v1 compressed — try RLE
+            pixel_data = decompress_rle(pixel_data_raw, height, row_bytes)
     else:
         pixel_data = pixel_data_raw
 
@@ -286,7 +296,7 @@ def _decode_1bpp(resource_data, width, height, row_bytes,
     pixel_data_raw = resource_data[data_offset:]
 
     if compressed:
-        pixel_data = decompress_scanline(pixel_data_raw, height, row_bytes)
+        pixel_data = decompress_rle(pixel_data_raw, height, row_bytes)
     else:
         pixel_data = pixel_data_raw
 

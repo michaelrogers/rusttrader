@@ -32,5 +32,8 @@ ENV/
 # Palm OS binary (download with extract_prc_bitmaps.py)
 tools/*.prc
 
+# Generated gallery (rebuild with sprite_gallery.py)
+tools/sprite_gallery.html
+
 # Assets (optional - uncomment if not committing generated assets)
 # assets/temp_decompiled/
