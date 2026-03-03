@@ -1,6 +1,7 @@
 // Main menu UI
 
 use macroquad::prelude::*;
+use crate::assets::GameAssets;
 
 fn draw_starfield() {
     let w = screen_width();
@@ -46,7 +47,20 @@ fn draw_ship_silhouette() {
     draw_rectangle(base_x - 12.0, base_y + 6.0, 12.0, 14.0, Color::from_rgba(60, 120, 200, 200));
 }
 
-pub async fn draw_main_menu() {
+fn draw_text_title() {
+    let title = "SPACE TRADER";
+    let title_size = 48.0;
+    let title_width = measure_text(title, None, title_size as u16, 1.0).width;
+    draw_text(
+        title,
+        screen_width() / 2.0 - title_width / 2.0,
+        120.0,
+        title_size,
+        WHITE,
+    );
+}
+
+pub async fn draw_main_menu(assets: Option<&GameAssets>) {
     // Background gradient (manual)
     let top = Color::from_rgba(6, 8, 18, 255);
     let bottom = Color::from_rgba(12, 18, 36, 255);
@@ -65,23 +79,40 @@ pub async fn draw_main_menu() {
     draw_moon();
     draw_ship_silhouette();
     
-    // Title
-    let title = "SPACE TRADER";
-    let title_size = 48.0;
-    let title_width = measure_text(title, None, title_size as u16, 1.0).width;
-    draw_text(
-        title,
-        screen_width() / 2.0 - title_width / 2.0,
-        120.0,
-        title_size,
-        WHITE,
-    );
+    // Title: use extracted logo if available, else text
+    let mut title_bottom = 155.0;
+    if let Some(assets) = assets {
+        if let Some(texture) = assets.get_ui("spacetrader") {
+            let logo_scale = 2.0;
+            let w = texture.width() * logo_scale;
+            let h = texture.height() * logo_scale;
+            let x = screen_width() / 2.0 - w / 2.0;
+            let y = 20.0;
+            draw_texture_ex(
+                texture,
+                x,
+                y,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(vec2(w, h)),
+                    ..Default::default()
+                },
+            );
+            title_bottom = y + h + 10.0;
+        } else {
+            draw_text_title();
+        }
+    } else {
+        draw_text_title();
+    }
 
     // Subtitle
+    let sub = "A Rust Port of the Classic Palm OS Game";
+    let sub_width = measure_text(sub, None, 18, 1.0).width;
     draw_text(
-        "A Rust Port of the Classic Palm OS Game",
-        screen_width() / 2.0 - 210.0,
-        155.0,
+        sub,
+        screen_width() / 2.0 - sub_width / 2.0,
+        title_bottom,
         18.0,
         LIGHTGRAY,
     );
